@@ -58,6 +58,23 @@ const AddProduct = () => {
         setProduct({ ...product, barcode: timestamp });
     };
 
+    // TEMPORARY: Random GPS for testing (remove in production)
+    const randomizeLocation = () => {
+        // Generate random coordinates within Chennai area
+        // Chennai bounds: ~12.8-13.2 lat, 80.1-80.3 long
+        const randomLat = (12.8 + Math.random() * 0.4).toFixed(6);
+        const randomLong = (80.1 + Math.random() * 0.2).toFixed(6);
+
+        setProduct({
+            ...product,
+            location: {
+                ...product.location,
+                latitude: parseFloat(randomLat),
+                longitude: parseFloat(randomLong)
+            }
+        });
+    };
+
     const calculateBulkTotal = () => {
         if (product.minOrderQty && product.bulkPricePerUnit) {
             return (Number(product.minOrderQty) * Number(product.bulkPricePerUnit)).toFixed(2);
@@ -69,16 +86,22 @@ const AddProduct = () => {
         setLoading(true);
         setSaveStatus(null);
         try {
-            // 1. Create or Get Shop (For prototype, we'll just create one or use a fixed one)
-            // In a real app, this comes from Auth context.
-            // Let's check if we have a shop ID stored, else create one.
-            let shopId = localStorage.getItem('proto_shop_id');
+            // Get or create shop for authenticated user
+            const { data: { user } } = await supabase.auth.getUser();
 
-            if (!shopId) {
-                const { data: shopData, error: shopError } = await supabase
+            let { data: shopData, error: shopError } = await supabase
+                .from('shops')
+                .select('id')
+                .eq('owner_id', user.id)
+                .single();
+
+            // If no shop exists, create one
+            if (!shopData) {
+                const { data: newShop, error: createError } = await supabase
                     .from('shops')
                     .insert([{
-                        name: 'My Demo Shop',
+                        name: 'My Shop', // User can edit this later
+                        owner_id: user.id,
                         latitude: product.location.latitude,
                         longitude: product.location.longitude,
                         area: product.location.area,
@@ -91,22 +114,21 @@ const AddProduct = () => {
                     .select()
                     .single();
 
-                if (shopError) throw shopError;
-                shopId = shopData.id;
-                localStorage.setItem('proto_shop_id', shopId);
+                if (createError) throw createError;
+                shopData = newShop;
             }
 
-            // 2. Insert Product
+            // Insert Product
             const { error: productError } = await supabase
                 .from('inventory_items')
                 .insert([{
-                    shop_id: shopId,
+                    shop_id: shopData.id,
                     name: product.name,
                     category: product.category,
                     description: product.description,
-                    image_url: product.imageUrl, // Note: In real app, upload file to Storage first!
+                    image_url: product.imageUrl,
                     barcode: product.barcode,
-                    quantity_in_stock: 100, // Default mock
+                    quantity_in_stock: 100, // Default
                     cost_per_unit: parseFloat(product.price) || 0,
                     min_moq: parseInt(product.minOrderQty) || 1,
                     bulk_moq_cost: parseFloat(product.bulkPricePerUnit) || null
@@ -115,7 +137,6 @@ const AddProduct = () => {
             if (productError) throw productError;
 
             setSaveStatus('success');
-            // Reset form slightly or provide feedback
             setTimeout(() => setSaveStatus(null), 3000);
 
         } catch (error) {
@@ -266,7 +287,17 @@ const AddProduct = () => {
 
                 {/* Shop Location (Mock - normally auto-detected) */}
                 <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Shop Location</h3>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Shop Location</h3>
+                        {/* TEMPORARY: Testing button - remove in production */}
+                        <button
+                            type="button"
+                            onClick={randomizeLocation}
+                            className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 py-1 px-3 rounded-lg font-semibold transition"
+                        >
+                            🎲 Random GPS (Test)
+                        </button>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <input disabled className="bg-gray-100 p-2 rounded border" value={product.location.latitude} />
                         <input disabled className="bg-gray-100 p-2 rounded border" value={product.location.longitude} />

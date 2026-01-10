@@ -30,89 +30,150 @@ const createPriceIcon = (price) => {
 
 const BuyerMap = () => {
     const [query, setQuery] = useState('');
+    const [category, setCategory] = useState('All');
     const [results, setResults] = useState([]);
+    const [suggestions, setSuggestions] = useState([]);
     const [userLocation, setUserLocation] = useState([12.9716, 80.2534]); // Chennai Default
     const [radius, setRadius] = useState(10); // km
 
-    // Fetch all items initially to show something on the map
-    useEffect(() => {
-        const fetchInitialItems = async () => {
-            let { data, error } = await supabase
-                .from('inventory_items')
-                .select(`
-                *,
-                shops (
-                    name,
-                    latitude,
-                    longitude
-                )
-            `);
-            if (data) {
-                console.log("Initial data:", data);
-                setResults(data);
-            }
-            if (error) console.error("Initial fetch error:", error);
-        };
-        fetchInitialItems();
-    }, []);
+    // Fetch product suggestions as user types
+    const handleQueryChange = async (value) => {
+        setQuery(value);
+
+        if (value.length < 2) {
+            setSuggestions([]);
+            return;
+        }
+
+        // Fetch matching products from DB
+        let query = supabase
+            .from('inventory_items')
+            .select('name')
+            .ilike('name', `%${value}%`)
+            .limit(5);
+
+        if (category !== 'All') {
+            query = query.eq('category', category);
+        }
+
+        const { data } = await query;
+        if (data) {
+            // Get unique product names
+            const uniqueNames = [...new Set(data.map(item => item.name))];
+            setSuggestions(uniqueNames);
+        }
+    };
 
     const handleSearch = async () => {
         if (!query) return;
 
-        // Perform search in Supabase
-        // Note: For radius search, usually we use PostGIS function.
-        // For MVP, we will fetch matches and filter or just show top results.
+        setSuggestions([]); // Clear suggestions
 
-        let { data, error } = await supabase
+        let searchQuery = supabase
             .from('inventory_items')
             .select(`
                 *,
                 shops (
                     name,
                     latitude,
-                    longitude
+                    longitude,
+                    city
                 )
             `)
             .ilike('name', `%${query}%`);
 
+        if (category !== 'All') {
+            searchQuery = searchQuery.eq('category', category);
+        }
+
+        const { data, error } = await searchQuery;
+
         if (error) {
             console.error('Search error', error);
+            setResults([]);
         } else {
-            console.log('Found', data);
-            setResults(data);
+            setResults(data || []);
         }
     };
 
     return (
         <div className="fixed inset-0 w-full h-screen">
             {/* Search Overlay */}
-            <div className="absolute top-4 left-4 right-4 z-[1000] max-w-md mx-auto">
-                <div className="bg-white p-2 rounded-xl shadow-xl flex gap-2">
-                    <div className="flex-1 flex items-center bg-gray-100 rounded-lg px-3">
-                        <Search className="w-5 h-5 text-gray-500" />
-                        <input
-                            className="w-full bg-transparent p-2 outline-none text-gray-800"
-                            placeholder="Search 'Red Apple' or 'Wrench'..."
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                        />
+            <div className="absolute top-4 left-4 right-4 z-[1000] max-w-2xl mx-auto">
+                <div className="bg-white p-3 rounded-xl shadow-xl">
+                    {/* Category Dropdown */}
+                    <div className="mb-3">
+                        <label className="text-xs text-gray-600 block mb-1">Category</label>
+                        <select
+                            className="w-full p-2 border border-gray-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                        >
+                            <option value="All">All Categories</option>
+                            <option value="Groceries">Groceries</option>
+                            <option value="Electronics">Electronics</option>
+                            <option value="Clothing">Clothing</option>
+                            <option value="Hardware">Hardware</option>
+                        </select>
                     </div>
-                    <button
-                        onClick={handleSearch}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
-                    >
-                        Find
-                    </button>
-                    <select
-                        className="bg-gray-100 rounded-lg px-2 text-sm text-gray-700 outline-none"
-                        value={radius}
-                        onChange={(e) => setRadius(e.target.value)}
-                    >
-                        <option value="5">5km</option>
-                        <option value="10">10km</option>
-                        <option value="20">20km</option>
-                    </select>
+
+                    {/* Product Search with Autocomplete */}
+                    <div className="relative">
+                        <label className="text-xs text-gray-600 block mb-1">Product Name</label>
+                        <div className="flex gap-2">
+                            <div className="flex-1 relative">
+                                <div className="flex items-center bg-gray-100 rounded-lg px-3">
+                                    <Search className="w-5 h-5 text-gray-500" />
+                                    <input
+                                        className="w-full bg-transparent p-2 outline-none text-gray-800"
+                                        placeholder="Type product name..."
+                                        value={query}
+                                        onChange={(e) => handleQueryChange(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                    />
+                                </div>
+
+                                {/* Autocomplete Suggestions */}
+                                {suggestions.length > 0 && (
+                                    <div className="absolute top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                                        {suggestions.map((suggestion, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="p-2 hover:bg-blue-50 cursor-pointer text-sm"
+                                                onClick={() => {
+                                                    setQuery(suggestion);
+                                                    setSuggestions([]);
+                                                    handleSearch();
+                                                }}
+                                            >
+                                                {suggestion}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={handleSearch}
+                                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
+                            >
+                                Find
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Radius Selector */}
+                    <div className="mt-3 flex items-center gap-2">
+                        <span className="text-xs text-gray-600">Search Radius:</span>
+                        <select
+                            className="text-sm bg-gray-100 rounded-lg px-3 py-1 text-gray-700 outline-none"
+                            value={radius}
+                            onChange={(e) => setRadius(e.target.value)}
+                        >
+                            <option value="5">5 km</option>
+                            <option value="10">10 km</option>
+                            <option value="20">20 km</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -157,9 +218,22 @@ const BuyerMap = () => {
                                                     Bulk: ₹{item.bulk_moq_cost} (Min {item.min_moq})
                                                 </div>
                                             )}
-                                            <button className="mt-3 w-full bg-black text-white py-2 rounded text-sm font-bold flex justify-center items-center gap-2">
-                                                <ShoppingBag className="w-4 h-4" /> Reserve
-                                            </button>
+
+                                            {/* Action Buttons */}
+                                            <div className="mt-3 flex gap-2">
+                                                <button
+                                                    onClick={() => {
+                                                        const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${item.shops.latitude},${item.shops.longitude}`;
+                                                        window.open(mapsUrl, '_blank');
+                                                    }}
+                                                    className="flex-1 bg-green-600 text-white py-2 rounded text-sm font-bold flex justify-center items-center gap-2 hover:bg-green-700 transition"
+                                                >
+                                                    📍 Get Directions
+                                                </button>
+                                                <button className="flex-1 bg-black text-white py-2 rounded text-sm font-bold flex justify-center items-center gap-2 hover:bg-gray-800 transition">
+                                                    <ShoppingBag className="w-4 h-4" /> Reserve
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </Popup>

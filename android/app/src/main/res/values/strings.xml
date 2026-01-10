@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GoLocal</string>
+    <string name="title_activity_main">GoLocal</string>
+    <string name="package_name">com.golocal.app</string>
+    <string name="custom_url_scheme">com.golocal.app</string>
+</resources>
