@@ -204,7 +204,7 @@ const SellerInventory = () => {
                                                 <>
                                                     <button
                                                         onClick={() => startEdit(product)}
-                                                        className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition"
+                                                        className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition"
                                                         title="Edit"
                                                     >
                                                         <Edit2 className="w-4 h-4" />

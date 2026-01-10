@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
@@ -7,8 +7,10 @@ import AddProduct from './components/AddProduct';
 import BuyerMap from './components/BuyerMap';
 import SellerInventory from './pages/SellerInventory';
 import AdminDashboard from './pages/AdminDashboard';
-import { useState } from 'react';
-import { ShoppingBag, Map, Package, BarChart3, LogOut } from 'lucide-react';
+import AuthCallback from './pages/AuthCallback';
+import Landing from './pages/Landing';
+import { useState, useEffect } from 'react';
+import { ShoppingBag, Map, Package, BarChart3, LogOut, LogIn } from 'lucide-react';
 import './App.css';
 
 function AppContent() {
@@ -19,21 +21,24 @@ function AppContent() {
     await signOut();
   };
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  // No automatic redirect to login - allowing independent testing of the dashboard
+  // if (!user) {
+  //   return <Navigate to="/login" replace />;
+  // }
 
   return (
     <div className="relative min-h-screen">
       {/* Navigation Bar */}
       <nav className="absolute top-0 left-0 right-0 z-[2000] bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold text-gray-800">GoLocal</h1>
-            <span className="text-sm text-gray-600">
-              {profile?.full_name} ({profile?.role})
-            </span>
-          </div>
+          <Link to="/" className="flex items-center gap-4 hover:opacity-80 transition">
+            <img src="/Go-Local-1-10-2026.png" alt="GoLocal" style={{ height: '40px', width: 'auto' }} />
+            {user && (
+              <span className="text-sm text-gray-600">
+                {profile?.full_name} ({profile?.role})
+              </span>
+            )}
+          </Link>
 
           <div className="flex items-center gap-3">
             {/* View Toggle */}
@@ -43,8 +48,8 @@ function AppContent() {
                 <button
                   onClick={() => setView('admin')}
                   className={`px-4 py-2 rounded-md text-sm font-semibold transition ${view === 'admin'
-                      ? 'bg-white text-purple-600 shadow'
-                      : 'text-gray-600 hover:text-gray-800'
+                    ? 'bg-white text-purple-600 shadow'
+                    : 'text-gray-600 hover:text-gray-800'
                     }`}
                 >
                   <BarChart3 className="w-4 h-4 inline mr-1" />
@@ -58,8 +63,8 @@ function AppContent() {
                   <button
                     onClick={() => setView('seller')}
                     className={`px-4 py-2 rounded-md text-sm font-semibold transition ${view === 'seller'
-                        ? 'bg-white text-blue-600 shadow'
-                        : 'text-gray-600 hover:text-gray-800'
+                      ? 'bg-white text-green-600 shadow'
+                      : 'text-gray-600 hover:text-gray-800'
                       }`}
                   >
                     <ShoppingBag className="w-4 h-4 inline mr-1" />
@@ -68,8 +73,8 @@ function AppContent() {
                   <button
                     onClick={() => setView('inventory')}
                     className={`px-4 py-2 rounded-md text-sm font-semibold transition ${view === 'inventory'
-                        ? 'bg-white text-blue-600 shadow'
-                        : 'text-gray-600 hover:text-gray-800'
+                      ? 'bg-white text-green-600 shadow'
+                      : 'text-gray-600 hover:text-gray-800'
                       }`}
                   >
                     <Package className="w-4 h-4 inline mr-1" />
@@ -82,29 +87,46 @@ function AppContent() {
               <button
                 onClick={() => setView('buyer')}
                 className={`px-4 py-2 rounded-md text-sm font-semibold transition ${view === 'buyer'
-                    ? 'bg-white text-green-600 shadow'
-                    : 'text-gray-600 hover:text-gray-800'
+                  ? 'bg-white text-green-600 shadow'
+                  : 'text-gray-600 hover:text-gray-800'
                   }`}
               >
                 <Map className="w-4 h-4 inline mr-1" />
                 Buyer
               </button>
+              {/* Dashboard/Login Link */}
+              {user ? (
+                <div className="flex items-center gap-3">
+                  <Link
+                    to="/dashboard"
+                    className="px-4 py-2 bg-green-100 text-green-700 rounded-lg font-semibold hover:bg-green-200 transition"
+                  >
+                    Dashboard
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="px-4 py-2 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition flex items-center gap-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/login"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition flex items-center gap-2"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Login
+                </Link>
+              )}
             </div>
-
-            {/* Sign Out */}
-            <button
-              onClick={handleSignOut}
-              className="px-4 py-2 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition flex items-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </button>
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
-      <div className="pt-16">
+      <div className="pt-16 min-h-screen bg-gray-50">
         {view === 'seller' && profile?.role === 'seller' && <AddProduct />}
         {view === 'inventory' && profile?.role === 'seller' && <SellerInventory />}
         {view === 'admin' && profile?.role === 'admin' && <AdminDashboard />}
@@ -119,16 +141,11 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <AppContent />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/dashboard" element={<AppContent />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

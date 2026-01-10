@@ -154,7 +154,7 @@ const BuyerMap = () => {
                             </div>
                             <button
                                 onClick={handleSearch}
-                                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
+                                className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
                             >
                                 Find
                             </button>
@@ -230,7 +230,7 @@ const BuyerMap = () => {
                                                 >
                                                     📍 Get Directions
                                                 </button>
-                                                <button className="flex-1 bg-black text-white py-2 rounded text-sm font-bold flex justify-center items-center gap-2 hover:bg-gray-800 transition">
+                                                <button className="flex-1 bg-green-600 text-white py-2 rounded text-sm font-bold flex justify-center items-center gap-2 hover:bg-green-700 transition">
                                                     <ShoppingBag className="w-4 h-4" /> Reserve
                                                 </button>
                                             </div>
