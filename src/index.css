@@ -52,3 +52,16 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* CRITICAL: Leaflet Map Container Fix */
+.leaflet-container {
+  height: 100vh !important;
+  width: 100% !important;
+  position: relative !important;
+  z-index: 0 !important;
+}
+
+/* Ensure map tiles load */
+.leaflet-tile-container {
+  pointer-events: auto !important;
+}

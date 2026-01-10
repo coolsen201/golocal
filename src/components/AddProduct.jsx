@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import Barcode from 'react-barcode';
+import { Scan, Printer, Plus, Save } from 'lucide-react';
 
 const AddProduct = () => {
     const [loading, setLoading] = useState(false);
@@ -19,7 +22,8 @@ const AddProduct = () => {
             longitude: 80.2534,
             area: 'T. Nagar',
             city: 'Chennai',
-            state: 'TN'
+            state: 'TN',
+            pincode: ''
         }
     });
 
@@ -80,6 +84,7 @@ const AddProduct = () => {
                         area: product.location.area,
                         city: product.location.city,
                         state: product.location.state,
+                        pincode: product.location.pincode,
                         full_address: `${product.location.area}, ${product.location.city}`,
                         image_url: 'https://via.placeholder.com/150'
                     }])
@@ -266,6 +271,22 @@ const AddProduct = () => {
                         <input disabled className="bg-gray-100 p-2 rounded border" value={product.location.latitude} />
                         <input disabled className="bg-gray-100 p-2 rounded border" value={product.location.longitude} />
                         <input disabled className="bg-gray-100 p-2 rounded border col-span-2" value={`${product.location.area}, ${product.location.city}, ${product.location.state}`} />
+
+                        {/* Manual Pincode Entry */}
+                        <div className="col-span-2">
+                            <label className="text-xs text-gray-600 block mb-1">Pincode (Manual Entry)</label>
+                            <input
+                                type="text"
+                                maxLength="6"
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                placeholder="e.g. 600017"
+                                value={product.location.pincode}
+                                onChange={(e) => setProduct({
+                                    ...product,
+                                    location: { ...product.location, pincode: e.target.value }
+                                })}
+                            />
+                        </div>
                     </div>
                     <p className="text-xs text-gray-400 mt-2">* Location auto-detected from GPS</p>
                 </div>

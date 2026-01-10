@@ -5,17 +5,18 @@ import { supabase } from '../supabaseClient';
 import { Search, ShoppingBag } from 'lucide-react';
 import L from 'leaflet';
 
-// Fix functionality for default markers in React-Leaflet
+// Fix for Leaflet default markers in Vite
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 
-let DefaultIcon = L.icon({
+delete L.Icon.Default.prototype._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: iconRetina,
     iconUrl: icon,
     shadowUrl: iconShadow,
-    iconAnchor: [12, 41]
 });
-
-L.Marker.prototype.options.icon = DefaultIcon;
 
 // Custom Price Marker
 const createPriceIcon = (price) => {
@@ -32,6 +33,28 @@ const BuyerMap = () => {
     const [results, setResults] = useState([]);
     const [userLocation, setUserLocation] = useState([12.9716, 80.2534]); // Chennai Default
     const [radius, setRadius] = useState(10); // km
+
+    // Fetch all items initially to show something on the map
+    useEffect(() => {
+        const fetchInitialItems = async () => {
+            let { data, error } = await supabase
+                .from('inventory_items')
+                .select(`
+                *,
+                shops (
+                    name,
+                    latitude,
+                    longitude
+                )
+            `);
+            if (data) {
+                console.log("Initial data:", data);
+                setResults(data);
+            }
+            if (error) console.error("Initial fetch error:", error);
+        };
+        fetchInitialItems();
+    }, []);
 
     const handleSearch = async () => {
         if (!query) return;
@@ -61,7 +84,7 @@ const BuyerMap = () => {
     };
 
     return (
-        <div className="relative h-screen w-full">
+        <div className="fixed inset-0 w-full h-screen">
             {/* Search Overlay */}
             <div className="absolute top-4 left-4 right-4 z-[1000] max-w-md mx-auto">
                 <div className="bg-white p-2 rounded-xl shadow-xl flex gap-2">
@@ -94,58 +117,57 @@ const BuyerMap = () => {
             </div>
 
             {/* Map */}
-            <MapContainer
-                center={userLocation}
-                zoom={13}
-                style={{ height: '100%', width: '100%' }}
-                zoomControl={false}
-            >
-                <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                />
+            <div className="absolute inset-0 z-0 bg-gray-200">
+                <MapContainer
+                    center={userLocation}
+                    zoom={13}
+                    style={{ height: '100vh', width: '100%' }}
+                    zoomControl={false}
+                >
+                    <TileLayer
+                        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    />
 
-                {/* User Location Marker */}
-                <Marker position={userLocation}>
-                    <Popup>You are here</Popup>
-                </Marker>
+                    {/* User Location Marker */}
+                    <Marker position={userLocation}>
+                        <Popup>You are here</Popup>
+                    </Marker>
 
-                {/* Result Markers */}
-                {results.map((item) => (
-                    item.shops && (
-                        <Marker
-                            key={item.id}
-                            position={[item.shops.latitude, item.shops.longitude]}
-                            icon={createPriceIcon(item.cost_per_unit)}
-                        >
-                            <Popup>
-                                <div className="min-w-[150px]">
-                                    <h3 className="font-bold text-lg">{item.shops.name}</h3>
-                                    <div className="mt-2">
-                                        <p className="font-medium text-gray-900">{item.name}</p>
-                                        <p className="text-sm text-gray-500">{item.shops.city}</p>
-
-                                        <div className="mt-3 flex justify-between items-center bg-green-50 p-2 rounded">
-                                            <span className="text-xs text-gray-600">Price</span>
-                                            <span className="font-bold text-green-700 text-lg">₹{item.cost_per_unit}</span>
-                                        </div>
-
-                                        {item.min_moq > 1 && (
-                                            <div className="mt-1 text-xs text-blue-600">
-                                                Bulk: ₹{item.bulk_moq_cost} (Min {item.min_moq})
+                    {/* Result Markers */}
+                    {results.map((item) => (
+                        item.shops && (
+                            <Marker
+                                key={item.id}
+                                position={[item.shops.latitude, item.shops.longitude]}
+                                icon={createPriceIcon(item.cost_per_unit)}
+                            >
+                                <Popup>
+                                    <div className="min-w-[150px]">
+                                        <h3 className="font-bold text-lg">{item.shops.name}</h3>
+                                        <div className="mt-2">
+                                            <p className="font-medium text-gray-900">{item.name}</p>
+                                            <p className="text-sm text-gray-500">{item.shops.city}</p>
+                                            <div className="mt-3 flex justify-between items-center bg-green-50 p-2 rounded">
+                                                <span className="text-xs text-gray-600">Price</span>
+                                                <span className="font-bold text-green-700 text-lg">₹{item.cost_per_unit}</span>
                                             </div>
-                                        )}
-
-                                        <button className="mt-3 w-full bg-black text-white py-2 rounded text-sm font-bold flex justify-center items-center gap-2">
-                                            <ShoppingBag className="w-4 h-4" /> Reserve
-                                        </button>
+                                            {item.min_moq > 1 && (
+                                                <div className="mt-1 text-xs text-blue-600">
+                                                    Bulk: ₹{item.bulk_moq_cost} (Min {item.min_moq})
+                                                </div>
+                                            )}
+                                            <button className="mt-3 w-full bg-black text-white py-2 rounded text-sm font-bold flex justify-center items-center gap-2">
+                                                <ShoppingBag className="w-4 h-4" /> Reserve
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            </Popup>
-                        </Marker>
-                    )
-                ))}
-            </MapContainer>
+                                </Popup>
+                            </Marker>
+                        )
+                    ))}
+                </MapContainer>
+            </div>
         </div>
     );
 };
