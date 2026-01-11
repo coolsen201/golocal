@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { BarChart3, Users, Package, TrendingUp, CheckCircle, XCircle, FileText, ExternalLink } from 'lucide-react';
+import { BarChart3, Users, Package, TrendingUp, CheckCircle, XCircle, FileText, ExternalLink, Calculator } from 'lucide-react';
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('inventory'); // 'inventory', 'approvals'
