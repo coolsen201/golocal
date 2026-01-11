@@ -9,33 +9,48 @@ import SellerInventory from './pages/SellerInventory';
 import AdminDashboard from './pages/AdminDashboard';
 import AuthCallback from './pages/AuthCallback';
 import Landing from './pages/Landing';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import SellerRegistration from './pages/SellerRegistration';
 import { useState, useEffect } from 'react';
 import { ShoppingBag, Map, Package, BarChart3, LogOut, LogIn } from 'lucide-react';
 import './App.css';
 
 function AppContent() {
-  const [view, setView] = useState('buyer'); // 'seller', 'buyer', 'inventory', 'admin'
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
+  const [view, setView] = useState('buyer');
+
+  useEffect(() => {
+    if (profile?.role === 'seller') setView('seller');
+    if (profile?.role === 'admin') setView('admin');
+  }, [profile]);
 
   const handleSignOut = async () => {
     await signOut();
   };
 
-  // No automatic redirect to login - allowing independent testing of the dashboard
-  // if (!user) {
-  //   return <Navigate to="/login" replace />;
-  // }
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="relative min-h-screen">
       {/* Navigation Bar */}
       <nav className="absolute top-0 left-0 right-0 z-[2000] bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-4 hover:opacity-80 transition">
+          <Link to="/" className="flex items-center gap-4 hover:opacity-80 transition" title={user?.email}>
             <img src="/Go-Local-1-10-2026.png" alt="GoLocal" style={{ height: '40px', width: 'auto' }} />
             {user && (
-              <span className="text-sm text-gray-600">
-                {profile?.full_name} ({profile?.role})
+              <span className="text-sm text-gray-600 font-medium">
+                {profile?.full_name || 'User'} ({profile?.role || 'buyer'})
               </span>
             )}
           </Link>
@@ -127,10 +142,16 @@ function AppContent() {
 
       {/* Main Content */}
       <div className="pt-16 min-h-screen bg-gray-50">
-        {view === 'seller' && profile?.role === 'seller' && <AddProduct />}
-        {view === 'inventory' && profile?.role === 'seller' && <SellerInventory />}
-        {view === 'admin' && profile?.role === 'admin' && <AdminDashboard />}
-        {view === 'buyer' && <BuyerMap />}
+        {user && profile?.role === 'seller' && profile?.approval_status !== 'approved' ? (
+          <SellerRegistration />
+        ) : (
+          <div className="animate-fadeIn">
+            {view === 'seller' && profile?.role === 'seller' && <AddProduct />}
+            {view === 'inventory' && profile?.role === 'seller' && <SellerInventory />}
+            {view === 'admin' && profile?.role === 'admin' && <AdminDashboard />}
+            {view === 'buyer' && <BuyerMap />}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -145,6 +166,9 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/seller-registration" element={<SellerRegistration />} />
           <Route path="/dashboard" element={<AppContent />} />
         </Routes>
       </AuthProvider>

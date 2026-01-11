@@ -76,6 +76,20 @@ export const AuthProvider = ({ children }) => {
         return { data, error };
     };
 
+    const resetPassword = async (email) => {
+        const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/reset-password`,
+        });
+        return { data, error };
+    };
+
+    const updatePassword = async (newPassword) => {
+        const { data, error } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+        return { data, error };
+    };
+
     const signUp = async (email, password, fullName, role = 'buyer') => {
         const { data, error } = await supabase.auth.signUp({
             email,
@@ -83,17 +97,15 @@ export const AuthProvider = ({ children }) => {
             options: {
                 data: {
                     full_name: fullName,
+                    role: role, // Pass role in metadata for the trigger to use
                 },
+                emailRedirectTo: `${window.location.origin}/auth/callback`
             },
         });
 
-        if (data.user && !error) {
-            // Update role in profiles table
-            await supabase
-                .from('profiles')
-                .update({ role })
-                .eq('id', data.user.id);
-        }
+        // Note: We don't upsert here because the user isn't authenticated yet
+        // and RLS will block it. The trigger will create the basic profile,
+        // and AuthCallback will update the role after email confirmation
 
         return { data, error };
     };
@@ -109,9 +121,12 @@ export const AuthProvider = ({ children }) => {
         loading,
         signInWithEmail,
         signInWithGoogle,
+        resetPassword,
+        updatePassword,
         signUp,
         signOut,
         isAdmin: profile?.role === 'admin',
+        isApprovedSeller: profile?.role === 'seller' && profile?.approval_status === 'approved',
         isSeller: profile?.role === 'seller',
         isBuyer: profile?.role === 'buyer',
     };

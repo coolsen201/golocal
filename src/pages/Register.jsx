@@ -30,7 +30,7 @@ const Register = () => {
             setError(error.message);
             setLoading(false);
         } else {
-            navigate('/');
+            navigate('/dashboard');
         }
     };
 
@@ -51,7 +51,7 @@ const Register = () => {
             <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
                 {/* Logo/Title */}
                 <div className="text-center mb-8">
-                    <img src="/Go-Local-1-10-2026.png" alt="GoLocal" className="mx-auto mb-4" style={{ maxWidth: '250px', height: 'auto' }} />
+                    <img src="/Go-Local.gif" alt="GoLocal" className="mx-auto mb-4" style={{ maxWidth: '250px', height: 'auto' }} />
                     <p className="text-gray-600 font-medium">AI Lightspeed Sell</p>
                 </div>
 
@@ -124,9 +124,9 @@ const Register = () => {
                             <button
                                 type="button"
                                 onClick={() => setRole('buyer')}
-                                className={`p-3 border-2 rounded-lg font-semibold transition ${role === 'buyer'
-                                    ? 'border-green-600 bg-green-600 text-white'
-                                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                                className={`p-3 border-2 rounded-lg font-bold transition flex items-center justify-center gap-2 ${role === 'buyer'
+                                    ? 'border-yellow-500 !bg-yellow-50 text-amber-900'
+                                    : 'border-gray-200 !bg-white text-amber-900 hover:border-yellow-200'
                                     }`}
                             >
                                 🛒 Buyer
@@ -134,9 +134,9 @@ const Register = () => {
                             <button
                                 type="button"
                                 onClick={() => setRole('seller')}
-                                className={`p-3 border-2 rounded-lg font-semibold transition ${role === 'seller'
-                                    ? 'border-green-600 bg-green-600 text-white'
-                                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                                className={`p-3 border-2 rounded-lg font-bold transition flex items-center justify-center gap-2 ${role === 'seller'
+                                    ? 'border-yellow-500 !bg-yellow-50 text-amber-900'
+                                    : 'border-gray-200 !bg-white text-amber-900 hover:border-yellow-200'
                                     }`}
                             >
                                 🏪 Seller
@@ -147,7 +147,8 @@ const Register = () => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-orange-600 text-white py-2 rounded-lg font-semibold hover:bg-orange-700 transition disabled:bg-gray-400 flex items-center justify-center gap-2"
+                        className="w-full !bg-yellow-400 text-amber-900 py-3 rounded-full font-bold hover:!bg-yellow-500 transition disabled:bg-gray-200 flex items-center justify-center gap-2 shadow-sm"
+                        style={{ fontSize: '16px' }}
                     >
                         {loading ? (
                             <span>Creating account...</span>
@@ -171,10 +172,10 @@ const Register = () => {
                 <button
                     onClick={handleGoogleSignUp}
                     disabled={loading}
-                    className="w-full bg-transparent border-2 border-gray-300 text-gray-700 py-3 px-4 rounded-full font-medium hover:bg-gray-50 transition disabled:bg-transparent flex items-center justify-center gap-3"
+                    className="w-full !bg-transparent text-gray-400 py-3 px-4 rounded-full font-normal hover:!bg-gray-50 transition disabled:text-gray-300 flex items-center justify-center gap-3 border-2 border-black"
                     style={{ fontSize: '16px' }}
                 >
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <svg width="24" height="24" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M17.64 9.20443C17.64 8.56625 17.5827 7.95262 17.4764 7.36353H9V10.8449H13.8436C13.635 11.9699 13.0009 12.9231 12.0477 13.5613V15.8194H14.9564C16.6582 14.2526 17.64 11.9453 17.64 9.20443Z" fill="#4285F4" />
                         <path d="M8.99976 18C11.4298 18 13.467 17.1941 14.9561 15.8195L12.0475 13.5613C11.2416 14.1013 10.2107 14.4204 8.99976 14.4204C6.65567 14.4204 4.67158 12.8372 3.96385 10.71H0.957031V13.0418C2.43794 15.9831 5.48158 18 8.99976 18Z" fill="#34A853" />
                         <path d="M3.96409 10.7098C3.78409 10.1698 3.68182 9.59301 3.68182 8.99983C3.68182 8.40665 3.78409 7.82983 3.96409 7.28983V4.95801H0.957273C0.347727 6.17301 0 7.54755 0 8.99983C0 10.4521 0.347727 11.8266 0.957273 13.0416L3.96409 10.7098Z" fill="#FBBC05" />
