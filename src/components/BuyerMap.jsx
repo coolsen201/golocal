@@ -28,9 +28,18 @@ const createPriceIcon = (price) => {
     });
 };
 
+// Sub-categories Data
+const SUB_CATEGORIES = {
+    'Groceries': ['Fruits', 'Vegetables', 'Dairy', 'Snacks', 'Beverages', 'Staples'],
+    'Electronics': ['Mobile', 'Laptop', 'Accessories', 'Home Appliances'],
+    'Clothing': ['Men', 'Women', 'Kids', 'Accessories'],
+    'Hardware': ['Tools', 'Plumbing', 'Electrical', 'Paint'],
+};
+
 const BuyerMap = () => {
     const [query, setQuery] = useState('');
     const [category, setCategory] = useState('All');
+    const [subCategory, setSubCategory] = useState(''); // New State
     const [results, setResults] = useState([]);
     const [suggestions, setSuggestions] = useState([]);
     const [userLocation, setUserLocation] = useState([12.9716, 80.2534]); // Chennai Default
@@ -56,6 +65,10 @@ const BuyerMap = () => {
             query = query.eq('category', category);
         }
 
+        if (subCategory) {
+            query = query.eq('sub_category', subCategory);
+        }
+
         const { data } = await query;
         if (data) {
             // Get unique product names
@@ -65,7 +78,7 @@ const BuyerMap = () => {
     };
 
     const handleSearch = async () => {
-        if (!query) return;
+        if (!query && category === 'All') return; // Allow search by category only too
 
         setSuggestions([]); // Clear suggestions
 
@@ -79,11 +92,18 @@ const BuyerMap = () => {
                     longitude,
                     city
                 )
-            `)
-            .ilike('name', `%${query}%`);
+            `);
+
+        if (query) {
+            searchQuery = searchQuery.ilike('name', `%${query}%`);
+        }
 
         if (category !== 'All') {
             searchQuery = searchQuery.eq('category', category);
+        }
+
+        if (subCategory) {
+            searchQuery = searchQuery.eq('sub_category', subCategory);
         }
 
         const { data, error } = await searchQuery;
@@ -106,7 +126,10 @@ const BuyerMap = () => {
                         <select
                             className="flex-1 p-2 border border-gray-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-green-500 text-sm"
                             value={category}
-                            onChange={(e) => setCategory(e.target.value)}
+                            onChange={(e) => {
+                                setCategory(e.target.value);
+                                setSubCategory(''); // Reset sub-category on change
+                            }}
                         >
                             <option value="All">All Categories</option>
                             <option value="Groceries">Groceries</option>
@@ -114,6 +137,21 @@ const BuyerMap = () => {
                             <option value="Clothing">Clothing</option>
                             <option value="Hardware">Hardware</option>
                         </select>
+
+                        {/* Sub Category Dropdown - Simplified Check */}
+                        {category !== 'All' && (
+                            <select
+                                className="flex-1 p-2 border border-blue-500 rounded-lg bg-white outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                                value={subCategory}
+                                onChange={(e) => setSubCategory(e.target.value)}
+                            >
+                                <option value="">All {category}</option>
+                                {(SUB_CATEGORIES[category] || []).map(sub => (
+                                    <option key={sub} value={sub}>{sub}</option>
+                                ))}
+                            </select>
+                        )}
+
                         <select
                             className="w-1/3 p-2 border border-gray-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-green-500 text-sm"
                             value={radius}

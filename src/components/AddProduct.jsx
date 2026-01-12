@@ -1,24 +1,48 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Added useEffect
 import { supabase } from '../supabaseClient';
 import Barcode from 'react-barcode';
-import { Scan, Printer, Plus, Save } from 'lucide-react';
+import { Scan, Printer, Plus, Save, Map as MapIcon } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix Leaflet marker icon issue
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// Sub-categories Data
+const SUB_CATEGORIES = {
+    'Groceries': ['Fruits', 'Vegetables', 'Dairy', 'Snacks', 'Beverages', 'Staples'],
+    'Electronics': ['Mobile', 'Laptop', 'Accessories', 'Home Appliances'],
+    'Clothing': ['Men', 'Women', 'Kids', 'Accessories'],
+    'Hardware': ['Tools', 'Plumbing', 'Electrical', 'Paint'],
+};
 
 const AddProduct = () => {
     const [loading, setLoading] = useState(false);
-    const [saveStatus, setSaveStatus] = useState(null); // 'success' | 'error'
+    const [saveStatus, setSaveStatus] = useState(null);
 
     const [product, setProduct] = useState({
         name: '',
         category: 'Groceries',
+        subCategory: 'Fruits', // Default Sub Category
         price: '',
         minOrderQty: '',
         bulkPricePerUnit: '',
         barcode: '',
-        // New Fields
         imageUrl: '',
         description: '',
         location: {
-            latitude: 12.9716, // Default Mock
+            latitude: 12.9716,
             longitude: 80.2534,
             area: 'T. Nagar',
             city: 'Chennai',
@@ -26,6 +50,16 @@ const AddProduct = () => {
             pincode: ''
         }
     });
+
+    // Update sub-category when main category changes
+    useEffect(() => {
+        const subs = SUB_CATEGORIES[product.category] || [];
+        if (subs.length > 0) {
+            setProduct(prev => ({ ...prev, subCategory: subs[0] }));
+        } else {
+            setProduct(prev => ({ ...prev, subCategory: '' }));
+        }
+    }, [product.category]);
 
     const [isSearching, setIsSearching] = useState(false);
 
@@ -130,6 +164,7 @@ const AddProduct = () => {
                     shop_id: shopData.id,
                     name: product.name,
                     category: product.category,
+                    sub_category: product.subCategory, // Needs SQL migration to work
                     description: product.description,
                     image_url: product.imageUrl,
                     barcode: product.barcode,
@@ -150,6 +185,15 @@ const AddProduct = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    // Map Updater to fly to new coordinates
+    const MapUpdater = ({ center }) => {
+        const map = useMap();
+        useEffect(() => {
+            map.flyTo(center, 13);
+        }, [center, map]);
+        return null;
     };
 
     return (
@@ -179,9 +223,6 @@ const AddProduct = () => {
                             />
                         </div>
                     </div>
-
-
-
                 </div>
 
                 {/* Basic Info */}
@@ -196,6 +237,8 @@ const AddProduct = () => {
                             onChange={(e) => setProduct({ ...product, name: e.target.value })}
                         />
                     </div>
+
+                    {/* Category & Sub-Category */}
                     <div className="space-y-2">
                         <label className="text-sm font-semibold text-gray-700">Category</label>
                         <select
@@ -203,10 +246,22 @@ const AddProduct = () => {
                             value={product.category}
                             onChange={(e) => setProduct({ ...product, category: e.target.value })}
                         >
-                            <option>Groceries</option>
-                            <option>Electronics</option>
-                            <option>Clothing</option>
-                            <option>Hardware</option>
+                            {Object.keys(SUB_CATEGORIES).map(cat => (
+                                <option key={cat}>{cat}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-gray-700">Sub Category</label>
+                        <select
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                            value={product.subCategory}
+                            onChange={(e) => setProduct({ ...product, subCategory: e.target.value })}
+                        >
+                            {SUB_CATEGORIES[product.category]?.map(sub => (
+                                <option key={sub}>{sub}</option>
+                            ))}
                         </select>
                     </div>
                 </div>
@@ -286,11 +341,10 @@ const AddProduct = () => {
                     </div>
                 </div>
 
-                {/* Shop Location (Mock - normally auto-detected) */}
+                {/* Shop Location */}
                 <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Shop Location</h3>
-                        {/* TEMPORARY: Testing button - remove in production */}
                         <button
                             type="button"
                             onClick={randomizeLocation}
@@ -299,12 +353,29 @@ const AddProduct = () => {
                             🎲 Random GPS (Test)
                         </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <input disabled className="bg-gray-100 p-2 rounded border" value={product.location.latitude} />
-                        <input disabled className="bg-gray-100 p-2 rounded border" value={product.location.longitude} />
-                        <input disabled className="bg-gray-100 p-2 rounded border col-span-2" value={`${product.location.area}, ${product.location.city}, ${product.location.state}`} />
 
-                        {/* Manual Pincode Entry */}
+                    <div className="h-64 rounded-lg overflow-hidden border border-gray-300 shadow-sm relative z-0 mb-4">
+                        <MapContainer
+                            center={[product.location.latitude, product.location.longitude]}
+                            zoom={13}
+                            style={{ height: '100%', width: '100%' }}
+                        >
+                            <TileLayer
+                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                attribution='&copy; OpenStreetMap contributors'
+                            />
+                            <Marker position={[product.location.latitude, product.location.longitude]} />
+                            <MapUpdater center={[product.location.latitude, product.location.longitude]} />
+                        </MapContainer>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2 text-sm bg-white p-3 rounded border border-gray-200">
+                            <MapIcon className="inline w-4 h-4 mr-2 text-gray-500" />
+                            {product.location.area}, {product.location.city}, {product.location.state}
+                        </div>
+
+                        {/* Manual Pincode */}
                         <div className="col-span-2">
                             <label className="text-xs text-gray-600 block mb-1">Pincode (Manual Entry)</label>
                             <input
@@ -320,7 +391,6 @@ const AddProduct = () => {
                             />
                         </div>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">* Location auto-detected from GPS</p>
                 </div>
 
                 {/* Actions */}

@@ -22,6 +22,14 @@ const SellerKycBusiness = () => {
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+
+        // Mobile Number: Allow only digits, max 10
+        if (name === 'mobileNumber') {
+            const numericValue = value.replace(/\D/g, '').slice(0, 10);
+            setFormData(prev => ({ ...prev, [name]: numericValue }));
+            return;
+        }
+
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
@@ -32,6 +40,13 @@ const SellerKycBusiness = () => {
         e.preventDefault();
         setError('');
         setLoading(true);
+
+        // Strict Mobile Validation
+        if (formData.mobileNumber.length !== 10) {
+            setError('Mobile Number must be exactly 10 digits.');
+            setLoading(false);
+            return;
+        }
 
         try {
             if (!user) throw new Error('You must be logged in.');
@@ -101,11 +116,12 @@ const SellerKycBusiness = () => {
                             <div className="relative">
                                 <Phone className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                                 <input
-                                    type="tel"
+                                    type="text"
                                     name="mobileNumber"
                                     required
+                                    maxLength="10"
                                     className="w-full pl-10 pr-4 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Linked to Aadhaar"
+                                    placeholder="Linked to Aadhaar (10 Digits)"
                                     value={formData.mobileNumber}
                                     onChange={handleChange}
                                 />
