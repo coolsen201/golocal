@@ -29,27 +29,16 @@ const AddProduct = () => {
 
     const [isSearching, setIsSearching] = useState(false);
 
-    // Mock "Smart Image Search"
     const handleImageUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        setIsSearching(true);
-        // Simulate API delay
-        setTimeout(() => {
-            // Mock result based on random chance or filename
-            setProduct(prev => ({
-                ...prev,
-                name: 'Organic Red Apple',
-                category: 'Groceries',
-                description: 'Fresh, crisp red apples from Kashmir. Sweet and juicy.',
-                imageUrl: URL.createObjectURL(file), // Show local preview
-                price: '45.00', // Suggested price
-                // Auto-fill barcode for "smart" feel
-                barcode: Date.now().toString().slice(-12)
-            }));
-            setIsSearching(false);
-        }, 1500);
+        // In a real app, you would upload to storage and run AI analysis here
+        // For now, we just show the local preview
+        setProduct(prev => ({
+            ...prev,
+            imageUrl: URL.createObjectURL(file)
+        }));
     };
 
     const generateBarcode = () => {
@@ -174,13 +163,9 @@ const AddProduct = () => {
                             />
                         </div>
                     </div>
-                    {isSearching && <p className="text-sm text-blue-600 mt-2 animate-pulse">Searching internet for product details...</p>}
 
-                    {product.name && (
-                        <div className="mt-4 p-3 bg-white rounded border border-blue-200 text-sm text-blue-800">
-                            ✨ Smart Match: <strong>{product.name}</strong> identified!
-                        </div>
-                    )}
+
+
                 </div>
 
                 {/* Basic Info */}
