@@ -3,6 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../supabaseClient';
 import { Briefcase, MapPin, Phone } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 const SellerKycBusiness = () => {
     const navigate = useNavigate();
@@ -15,10 +28,18 @@ const SellerKycBusiness = () => {
         shopName: '',
         businessType: 'Kirana Store',
         natureOfBusiness: '',
-        residentialAddress: '', // Asked in original Step 1, collecting here
+        residentialAddress: '',
         businessAddress: '',
-        isIndividual: true
+        isIndividual: true,
+        latitude: 12.9716, // Default Chennai
+        longitude: 80.2534
     });
+
+    const MapUpdater = ({ center }) => {
+        const map = useMap();
+        map.flyTo(center, 13);
+        return null;
+    };
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -66,11 +87,7 @@ const SellerKycBusiness = () => {
             const { error } = await supabase.from('profiles').upsert(updates);
             if (error) throw error;
 
-            // Optional: Create Shop entry now or later?
-            // Let's create it later or now. Original code did it at end.
-            // Let's verify shopName in next step? Or keep state?
-            // Safer to pass ShopName via location state or save to profile metadata if needed. 
-            // Or just create the Shop row now with null images.
+            // Create Shop with correct location
             if (formData.shopName) {
                 const { error: shopError } = await supabase
                     .from('shops')
@@ -78,10 +95,11 @@ const SellerKycBusiness = () => {
                         owner_id: user.id,
                         name: formData.shopName,
                         full_address: formData.businessAddress,
-                        latitude: 0,
-                        longitude: 0,
-                        image_url: null // Will update in next step
+                        latitude: formData.latitude,
+                        longitude: formData.longitude,
+                        image_url: 'https://via.placeholder.com/150'
                     });
+
                 // Ignore duplicate key error if they retry
                 if (shopError && shopError.code !== '23505') console.error('Shop create error', shopError);
             }
@@ -171,6 +189,40 @@ const SellerKycBusiness = () => {
                                 onChange={handleChange}
                             ></textarea>
                         </div>
+                    </div>
+
+                    {/* Shop Location Map */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Pin Your Shop Location</label>
+                        <div className="h-64 rounded-lg overflow-hidden border border-gray-300 shadow-sm relative z-0">
+                            <MapContainer
+                                center={[formData.latitude, formData.longitude]}
+                                zoom={13}
+                                style={{ height: '100%', width: '100%' }}
+                            >
+                                <TileLayer
+                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                    attribution='&copy; OpenStreetMap contributors'
+                                />
+                                <Marker
+                                    position={[formData.latitude, formData.longitude]}
+                                    draggable={true}
+                                    eventHandlers={{
+                                        dragend: (e) => {
+                                            const marker = e.target;
+                                            const position = marker.getLatLng();
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                latitude: position.lat,
+                                                longitude: position.lng
+                                            }));
+                                        }
+                                    }}
+                                />
+                                <MapUpdater center={[formData.latitude, formData.longitude]} />
+                            </MapContainer>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Drag the pin to your exact shop location.</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

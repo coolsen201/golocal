@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'; // Added useEffect
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import Barcode from 'react-barcode';
 import { Scan, Printer, Plus, Save, Map as MapIcon } from 'lucide-react';
@@ -66,24 +66,18 @@ const AddProduct = () => {
                 .single();
 
             if (shop) {
-                // **FIX**: If shop has 0,0 coordinates (invalid), allow user to Update it
-                if (shop.latitude === 0 || shop.longitude === 0) {
-                    setShopExists(false); // Enable Edit Mode
-                } else {
-                    setShopExists(true);
-                    // Lock location to existing shop
-                    setProduct(prev => ({
-                        ...prev,
-                        location: {
-                            latitude: shop.latitude,
-                            longitude: shop.longitude,
-                            area: shop.area,
-                            city: shop.city,
-                            state: shop.state,
-                            pincode: shop.pincode
-                        }
-                    }));
-                }
+                setShopExists(true);
+                setProduct(prev => ({
+                    ...prev,
+                    location: {
+                        latitude: shop.latitude,
+                        longitude: shop.longitude,
+                        area: shop.area,
+                        city: shop.city,
+                        state: shop.state,
+                        pincode: shop.pincode
+                    }
+                }));
             }
         };
 
@@ -120,39 +114,6 @@ const AddProduct = () => {
         setProduct({ ...product, barcode: timestamp });
     };
 
-    // TEMPORARY: Random GPS for testing (remove in production)
-    // TEMPORARY: Random GPS for testing
-    const randomizeLocation = () => {
-        const chennaiPlaces = [
-            { name: 'T. Nagar', lat: 13.0418, lng: 80.2341, pin: '600017' },
-            { name: 'Adyar', lat: 13.0012, lng: 80.2565, pin: '600020' },
-            { name: 'Anna Nagar', lat: 13.0850, lng: 80.2101, pin: '600040' },
-            { name: 'Velachery', lat: 12.9759, lng: 80.2212, pin: '600042' },
-            { name: 'Mylapore', lat: 13.0368, lng: 80.2676, pin: '600004' },
-            { name: 'Guindy', lat: 13.0067, lng: 80.2206, pin: '600032' },
-            { name: 'Tambaram', lat: 12.9249, lng: 80.1000, pin: '600045' },
-            { name: 'Porur', lat: 13.0382, lng: 80.1565, pin: '600116' },
-            { name: 'Besant Nagar', lat: 13.0003, lng: 80.2667, pin: '600090' },
-            { name: 'Kodambakkam', lat: 13.0524, lng: 80.2258, pin: '600024' }
-        ];
-
-        const randomPlace = chennaiPlaces[Math.floor(Math.random() * chennaiPlaces.length)];
-
-        // Add slight randomness to coordinates so they aren't exact duplicates
-        const jitter = () => (Math.random() - 0.5) * 0.005;
-
-        setProduct(prev => ({
-            ...prev,
-            location: {
-                ...prev.location,
-                latitude: (randomPlace.lat + jitter()).toFixed(6),
-                longitude: (randomPlace.lng + jitter()).toFixed(6),
-                area: randomPlace.name,
-                pincode: randomPlace.pin
-            }
-        }));
-    };
-
     const calculateBulkTotal = () => {
         if (product.minOrderQty && product.bulkPricePerUnit) {
             return (Number(product.minOrderQty) * Number(product.bulkPricePerUnit)).toFixed(2);
@@ -173,29 +134,12 @@ const AddProduct = () => {
                 .eq('owner_id', user.id)
                 .single();
 
-            if (shopData) {
-                // **FIX**: Update Shop Location if it changed (fixing the 0,0 bug)
-                // We update if the user has edited the location (which implies shopExists=false or it was 0,0)
-                if (product.location.latitude !== 0 && product.location.longitude !== 0) {
-                    await supabase
-                        .from('shops')
-                        .update({
-                            latitude: product.location.latitude,
-                            longitude: product.location.longitude,
-                            area: product.location.area,
-                            city: product.location.city,
-                            state: product.location.state,
-                            pincode: product.location.pincode,
-                            full_address: `${product.location.area}, ${product.location.city}`
-                        })
-                        .eq('id', shopData.id);
-                }
-            } else {
-                // If no shop exists, create one
+            // Should have been created in KYC, but fallback
+            if (!shopData) {
                 const { data: newShop, error: createError } = await supabase
                     .from('shops')
                     .insert([{
-                        name: 'My Shop', // User can edit this later
+                        name: 'My Shop',
                         owner_id: user.id,
                         latitude: product.location.latitude,
                         longitude: product.location.longitude,
@@ -428,27 +372,9 @@ const AddProduct = () => {
                 <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                            {shopExists ? (
-                                <>
-                                    Shop Location (Locked)
-                                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Fixed</span>
-                                </>
-                            ) : (
-                                "Set Shop Location"
-                            )}
+                            Shop Location (Fixed)
+                            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Read Only</span>
                         </h3>
-                        {!shopExists && (
-                            <button
-                                type="button"
-                                onClick={randomizeLocation}
-                                className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 py-1 px-3 rounded-lg font-semibold transition"
-                            >
-                                🎲 Random GPS (Test)
-                            </button>
-                        )}
-                        {shopExists && (
-                            <span className="text-xs text-gray-400 italic">One Shop = One Location</span>
-                        )}
                     </div>
 
                     <div className="h-64 rounded-lg overflow-hidden border border-gray-300 shadow-sm relative z-0 mb-4">
