@@ -6,7 +6,7 @@ import { Briefcase, MapPin, Phone } from 'lucide-react';
 
 const SellerKycBusiness = () => {
     const navigate = useNavigate();
-    const { user, profile } = useAuth();
+    const { user, profile, refreshProfile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
