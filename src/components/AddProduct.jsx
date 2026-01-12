@@ -48,20 +48,36 @@ const AddProduct = () => {
     };
 
     // TEMPORARY: Random GPS for testing (remove in production)
+    // TEMPORARY: Random GPS for testing
     const randomizeLocation = () => {
-        // Generate random coordinates within Chennai area
-        // Chennai bounds: ~12.8-13.2 lat, 80.1-80.3 long
-        const randomLat = (12.8 + Math.random() * 0.4).toFixed(6);
-        const randomLong = (80.1 + Math.random() * 0.2).toFixed(6);
+        const chennaiPlaces = [
+            { name: 'T. Nagar', lat: 13.0418, lng: 80.2341, pin: '600017' },
+            { name: 'Adyar', lat: 13.0012, lng: 80.2565, pin: '600020' },
+            { name: 'Anna Nagar', lat: 13.0850, lng: 80.2101, pin: '600040' },
+            { name: 'Velachery', lat: 12.9759, lng: 80.2212, pin: '600042' },
+            { name: 'Mylapore', lat: 13.0368, lng: 80.2676, pin: '600004' },
+            { name: 'Guindy', lat: 13.0067, lng: 80.2206, pin: '600032' },
+            { name: 'Tambaram', lat: 12.9249, lng: 80.1000, pin: '600045' },
+            { name: 'Porur', lat: 13.0382, lng: 80.1565, pin: '600116' },
+            { name: 'Besant Nagar', lat: 13.0003, lng: 80.2667, pin: '600090' },
+            { name: 'Kodambakkam', lat: 13.0524, lng: 80.2258, pin: '600024' }
+        ];
 
-        setProduct({
-            ...product,
+        const randomPlace = chennaiPlaces[Math.floor(Math.random() * chennaiPlaces.length)];
+
+        // Add slight randomness to coordinates so they aren't exact duplicates
+        const jitter = () => (Math.random() - 0.5) * 0.005;
+
+        setProduct(prev => ({
+            ...prev,
             location: {
-                ...product.location,
-                latitude: parseFloat(randomLat),
-                longitude: parseFloat(randomLong)
+                ...prev.location,
+                latitude: (randomPlace.lat + jitter()).toFixed(6),
+                longitude: (randomPlace.lng + jitter()).toFixed(6),
+                area: randomPlace.name,
+                pincode: randomPlace.pin
             }
-        });
+        }));
     };
 
     const calculateBulkTotal = () => {
