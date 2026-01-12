@@ -207,22 +207,49 @@ const AddProduct = () => {
 
                 {/* Smart Image Search */}
                 <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
-                    <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-3">
-                        Step 1: Smart Product Lookup
+                    <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        {isAnalyzing ? (
+                            <>
+                                <Scan className="w-5 h-5 animate-spin" />
+                                Analyzing Image with AI...
+                            </>
+                        ) : (
+                            <>Step 1: Smart Product Lookup</>
+                        )}
                     </h3>
-                    <div className="flex items-center gap-4">
-                        <div className="w-full">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Upload Product Image to Auto-Fill
-                            </label>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* Gallery Upload */}
+                        <label className="cursor-pointer bg-white border border-gray-200 p-4 rounded-xl flex flex-col items-center gap-2 hover:bg-gray-50 transition shadow-sm">
+                            <span className="text-3xl">📁</span>
+                            <span className="text-sm font-bold text-gray-700">Gallery</span>
                             <input
                                 type="file"
                                 accept="image/*"
                                 onChange={handleImageUpload}
-                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
+                                className="hidden"
                             />
-                        </div>
+                        </label>
+
+                        {/* Camera Capture - Triggers Mobile Camera */}
+                        <label className="cursor-pointer bg-white border border-gray-200 p-4 rounded-xl flex flex-col items-center gap-2 hover:bg-gray-50 transition shadow-sm">
+                            <span className="text-3xl">📸</span>
+                            <span className="text-sm font-bold text-gray-700">Camera</span>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                onChange={handleImageUpload}
+                                className="hidden"
+                            />
+                        </label>
                     </div>
+
+                    {isAnalyzing && (
+                        <div className="mt-3 text-xs text-center text-blue-600 font-medium">
+                            Detecting product details... (Simulated)
+                        </div>
+                    )}
                 </div>
 
                 {/* Basic Info */}
@@ -344,14 +371,28 @@ const AddProduct = () => {
                 {/* Shop Location */}
                 <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Shop Location</h3>
-                        <button
-                            type="button"
-                            onClick={randomizeLocation}
-                            className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 py-1 px-3 rounded-lg font-semibold transition"
-                        >
-                            🎲 Random GPS (Test)
-                        </button>
+                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            {shopExists ? (
+                                <>
+                                    Shop Location (Locked)
+                                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Fixed</span>
+                                </>
+                            ) : (
+                                "Set Shop Location"
+                            )}
+                        </h3>
+                        {!shopExists && (
+                            <button
+                                type="button"
+                                onClick={randomizeLocation}
+                                className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 py-1 px-3 rounded-lg font-semibold transition"
+                            >
+                                🎲 Random GPS (Test)
+                            </button>
+                        )}
+                        {shopExists && (
+                            <span className="text-xs text-gray-400 italic">One Shop = One Location</span>
+                        )}
                     </div>
 
                     <div className="h-64 rounded-lg overflow-hidden border border-gray-300 shadow-sm relative z-0 mb-4">
