@@ -77,8 +77,14 @@ const BuyerMap = () => {
         }
     };
 
+    // Auto-Search when Category or Sub-Category changes
+    useEffect(() => {
+        handleSearch();
+    }, [category, subCategory]);
+
     const handleSearch = async () => {
-        if (!query && category === 'All') return; // Allow search by category only too
+        // Allow empty query if category is selected
+        if (!query && category === 'All' && !subCategory) return;
 
         setSuggestions([]); // Clear suggestions
 
@@ -114,6 +120,25 @@ const BuyerMap = () => {
         } else {
             setResults(data || []);
         }
+    };
+
+    // Map Component to auto-fit bounds to results
+    const MapBoundsUpdater = ({ results, userLocation }) => {
+        const map = useMap();
+
+        useEffect(() => {
+            if (results.length > 0) {
+                const bounds = L.latLngBounds(results.map(r => [r.shops.latitude, r.shops.longitude]));
+                // Include user location in bounds
+                bounds.extend(userLocation);
+                map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+            } else {
+                // If no results, fly to user location
+                map.flyTo(userLocation, 13);
+            }
+        }, [results, userLocation, map]);
+
+        return null;
     };
 
     return (
@@ -228,6 +253,8 @@ const BuyerMap = () => {
                         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     />
+
+                    <MapBoundsUpdater results={results} userLocation={userLocation} />
 
                     {/* User Location Marker */}
                     <Marker position={userLocation}>
