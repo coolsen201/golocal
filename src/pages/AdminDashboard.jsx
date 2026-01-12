@@ -269,12 +269,45 @@ const AdminDashboard = () => {
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))
+
+                                    {/* Documents Section */}
+                                    <div className="px-6 pb-6 pt-0 border-t border-gray-100 mt-4">
+                                        <h4 className="text-xs font-bold text-gray-400 uppercase mt-4 mb-3 flex items-center gap-1">
+                                            <FileText className="w-3 h-3" /> Verification Documents
+                                        </h4>
+                                        <div className="flex gap-6">
+                                            {[
+                                                { label: 'Aadhaar', url: seller.aadhaar_card_url },
+                                                { label: 'Selfie', url: seller.selfie_url },
+                                                { label: 'Shop Photo', url: seller.shop_photo_url || seller.image_url } // Fallback to shop image
+                                            ].map((doc, idx) => (
+                                                doc.url ? (
+                                                    <div key={idx} className="group relative">
+                                                        <div
+                                                            className="h-16 w-16 rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:ring-2 hover:ring-purple-500 transition shadow-sm"
+                                                            onClick={() => window.open(doc.url, '_blank')}
+                                                            title={`View ${doc.label}`}
+                                                        >
+                                                            <img src={doc.url} alt={doc.label} className="h-full w-full object-cover group-hover:scale-110 transition duration-300" />
+                                                        </div>
+                                                        <span className="text-[10px] text-gray-500 font-medium px-1 mt-1 block text-center">{doc.label}</span>
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 pointer-events-none transition rounded-lg" />
+                                                        <ExternalLink className="absolute top-1 right-1 w-3 h-3 text-white opacity-0 group-hover:opacity-100 drop-shadow-md pointer-events-none" />
+                                                    </div>
+                                                ) : (
+                                                    <div key={idx} className="h-16 w-16 rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center bg-gray-50">
+                                                        <span className="text-[8px] text-gray-400 uppercase font-bold">{doc.label}</span>
+                                                        <span className="text-[10px] text-gray-300">N/A</span>
+                                                    </div>
+                                                )
+                                            ))}
+                                        </div>
+                                    </div>
+                                    ))
                         )}
+                                </div>
+                            )}
                     </div>
-                )}
-            </div>
         </DashboardLayout>
     );
 };

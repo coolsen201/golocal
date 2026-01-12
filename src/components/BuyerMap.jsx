@@ -29,17 +29,13 @@ const createPriceIcon = (price) => {
 };
 
 // Sub-categories Data
-const SUB_CATEGORIES = {
-    'Groceries': ['Fruits', 'Vegetables', 'Dairy', 'Snacks', 'Beverages', 'Staples'],
-    'Electronics': ['Mobile', 'Laptop', 'Accessories', 'Home Appliances'],
-    'Clothing': ['Men', 'Women', 'Kids', 'Accessories'],
-    'Hardware': ['Tools', 'Plumbing', 'Electrical', 'Paint'],
-};
+// Removed in favor of dynamic Item Name fetching
+// const SUB_CATEGORIES = { ... };
 
 const BuyerMap = () => {
     const [query, setQuery] = useState('');
     const [category, setCategory] = useState('All');
-    const [subCategory, setSubCategory] = useState(''); // New State
+    const [itemName, setItemName] = useState(''); // Replaces subCategory
     const [results, setResults] = useState([]);
     const [suggestions, setSuggestions] = useState([]);
     const [userLocation, setUserLocation] = useState([12.9716, 80.2534]); // Chennai Default
@@ -65,10 +61,6 @@ const BuyerMap = () => {
             query = query.eq('category', category);
         }
 
-        if (subCategory) {
-            query = query.eq('sub_category', subCategory);
-        }
-
         const { data } = await query;
         if (data) {
             // Get unique product names
@@ -77,14 +69,35 @@ const BuyerMap = () => {
         }
     };
 
+    // Fetch Unique Item Names when Category changes
+    useEffect(() => {
+        const fetchItemNames = async () => {
+            if (category === 'All') {
+                setSuggestions([]);
+                return;
+            }
+
+            const { data } = await supabase
+                .from('inventory_items')
+                .select('name')
+                .eq('category', category);
+
+            if (data) {
+                const unique = [...new Set(data.map(i => i.name))];
+                setSuggestions(unique);
+            }
+        };
+        fetchItemNames();
+    }, [category]);
+
     // Auto-Search when Category or Sub-Category changes
     useEffect(() => {
         handleSearch();
-    }, [category, subCategory]);
+    }, [category, itemName]);
 
     const handleSearch = async () => {
-        // Allow empty query if category is selected
-        if (!query && category === 'All' && !subCategory) return;
+        // Allow search with empty query to show all items
+        // if (!query && category === 'All' && !itemName) return;
 
         setSuggestions([]); // Clear suggestions
 
@@ -94,9 +107,9 @@ const BuyerMap = () => {
                 *,
                 shops (
                     name,
+                    city,
                     latitude,
-                    longitude,
-                    city
+                    longitude
                 )
             `);
 
@@ -108,8 +121,8 @@ const BuyerMap = () => {
             searchQuery = searchQuery.eq('category', category);
         }
 
-        if (subCategory) {
-            searchQuery = searchQuery.eq('sub_category', subCategory);
+        if (itemName) {
+            searchQuery = searchQuery.eq('name', itemName);
         }
 
         const { data, error } = await searchQuery;
@@ -128,12 +141,14 @@ const BuyerMap = () => {
 
         useEffect(() => {
             if (results.length > 0) {
-                const bounds = L.latLngBounds(results.map(r => [r.shops.latitude, r.shops.longitude]));
-                // Include user location in bounds
+                // Use Item location (fallback to Shop Location)
+                const bounds = L.latLngBounds(results.map(r => [
+                    r.latitude || r.shops?.latitude || 0,
+                    r.longitude || r.shops?.longitude || 0
+                ]));
                 bounds.extend(userLocation);
                 map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15 });
             } else {
-                // If no results, fly to user location
                 map.flyTo(userLocation, 13);
             }
         }, [results, userLocation, map]);
@@ -153,7 +168,7 @@ const BuyerMap = () => {
                             value={category}
                             onChange={(e) => {
                                 setCategory(e.target.value);
-                                setSubCategory(''); // Reset sub-category on change
+                                setItemName('');
                             }}
                         >
                             <option value="All">All Categories</option>
@@ -163,16 +178,16 @@ const BuyerMap = () => {
                             <option value="Hardware">Hardware</option>
                         </select>
 
-                        {/* Sub Category Dropdown - Simplified Check */}
-                        {category !== 'All' && (
+                        {/* Item Name Dropdown (Replaces SubCategory) */}
+                        {category !== 'All' && suggestions.length > 0 && (
                             <select
                                 className="flex-1 p-2 border border-blue-500 rounded-lg bg-white outline-none focus:ring-2 focus:ring-green-500 text-sm"
-                                value={subCategory}
-                                onChange={(e) => setSubCategory(e.target.value)}
+                                value={itemName}
+                                onChange={(e) => setItemName(e.target.value)}
                             >
-                                <option value="">All {category}</option>
-                                {(SUB_CATEGORIES[category] || []).map(sub => (
-                                    <option key={sub} value={sub}>{sub}</option>
+                                <option value="">Select Specific Item (Found: {suggestions.length})</option>
+                                {suggestions.map(name => (
+                                    <option key={name} value={name}>{name}</option>
                                 ))}
                             </select>
                         )}
@@ -201,14 +216,6 @@ const BuyerMap = () => {
                                         onChange={(e) => handleQueryChange(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                     />
-                                    {/* Camera Button */}
-                                    <button
-                                        className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 transition"
-                                        title="Scan Product"
-                                        onClick={() => alert('Camera Scan feature coming soon!')}
-                                    >
-                                        <Camera className="w-5 h-5" />
-                                    </button>
                                 </div>
 
                                 {/* Autocomplete Suggestions (Expanding Upwards) */}
@@ -261,50 +268,61 @@ const BuyerMap = () => {
                         <Popup>You are here</Popup>
                     </Marker>
 
-                    {/* Result Markers */}
-                    {results.map((item) => (
-                        item.shops && (
-                            <Marker
-                                key={item.id}
-                                position={[item.shops.latitude, item.shops.longitude]}
-                                icon={createPriceIcon(item.cost_per_unit)}
-                            >
-                                <Popup>
-                                    <div className="min-w-[150px]">
-                                        <h3 className="font-bold text-lg">{item.shops.name}</h3>
-                                        <div className="mt-2">
-                                            <p className="font-medium text-gray-900">{item.name}</p>
-                                            <p className="text-sm text-gray-500">{item.shops.city}</p>
-                                            <div className="mt-3 flex justify-between items-center bg-green-50 p-2 rounded">
-                                                <span className="text-xs text-gray-600">Price</span>
-                                                <span className="font-bold text-green-700 text-lg">₹{item.cost_per_unit}</span>
-                                            </div>
-                                            {item.min_moq > 1 && (
-                                                <div className="mt-1 text-xs text-blue-600">
-                                                    Bulk: ₹{item.bulk_moq_cost} (Min {item.min_moq})
-                                                </div>
-                                            )}
+                    {/* Group Results by Location (Lat/Long) to compare apples to apples */}
+                    {Object.values(results.reduce((acc, item) => {
+                        // Determine Effective Location (Item Specific OR Shop Default)
+                        const lat = item.latitude || item.shops?.latitude;
+                        const lng = item.longitude || item.shops?.longitude;
 
-                                            {/* Action Buttons */}
-                                            <div className="mt-3 flex gap-2">
-                                                <button
-                                                    onClick={() => {
-                                                        const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${item.shops.latitude},${item.shops.longitude}`;
-                                                        window.open(mapsUrl, '_blank');
-                                                    }}
-                                                    className="flex-1 bg-green-600 text-white py-2 rounded text-sm font-bold flex justify-center items-center gap-2 hover:bg-green-700 transition"
-                                                >
-                                                    📍 Get Directions
-                                                </button>
-                                                <button className="flex-1 bg-green-600 text-white py-2 rounded text-sm font-bold flex justify-center items-center gap-2 hover:bg-green-700 transition">
-                                                    <ShoppingBag className="w-4 h-4" /> Reserve
-                                                </button>
+                        if (!lat || !lng) return acc; // Skip invalid locations
+
+                        const locKey = `${lat}-${lng}`;
+
+                        if (!acc[locKey]) {
+                            acc[locKey] = {
+                                coords: [lat, lng],
+                                shopName: item.shops?.name,
+                                city: item.shops?.city,
+                                items: []
+                            };
+                        }
+                        acc[locKey].items.push(item);
+                        return acc;
+                    }, {})).map((group, idx) => (
+                        <Marker
+                            key={idx}
+                            position={group.coords}
+                            icon={createPriceIcon(group.items[0].cost_per_unit)}
+                        >
+                            <Popup>
+                                <div className="min-w-[200px]">
+                                    {/* Show Shop Name if available, or just 'Location' */}
+                                    <h3 className="font-bold text-lg border-b pb-2 mb-2">{group.shopName || 'Item Location'}</h3>
+                                    <p className="text-xs text-gray-500 mb-2">{group.city}</p>
+
+                                    <div className="max-h-[150px] overflow-y-auto space-y-3">
+                                        {group.items.map((item, i) => (
+                                            <div key={i} className="bg-gray-50 p-2 rounded">
+                                                <p className="font-medium text-gray-900 text-sm">{item.name}</p>
+                                                <div className="flex justify-between items-center mt-1">
+                                                    <span className="font-bold text-green-700">₹{item.cost_per_unit}</span>
+                                                    {item.quantity_in_stock < 5 && <span className="text-[10px] text-red-500 font-bold">Low Stock!</span>}
+                                                </div>
                                             </div>
-                                        </div>
+                                        ))}
                                     </div>
-                                </Popup>
-                            </Marker>
-                        )
+
+                                    <div className="mt-3 flex gap-2">
+                                        <button
+                                            onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${group.coords[0]},${group.coords[1]}`, '_blank')}
+                                            className="flex-1 bg-green-600 text-white py-2 rounded text-sm font-bold flex justify-center items-center gap-2 hover:bg-green-700 transition"
+                                        >
+                                            📍 Directions
+                                        </button>
+                                    </div>
+                                </div>
+                            </Popup>
+                        </Marker>
                     ))}
                 </MapContainer>
             </div>

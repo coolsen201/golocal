@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import Barcode from 'react-barcode';
-import { Scan, Printer, Plus, Save, Map as MapIcon } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import { Scan, Printer, Plus, Save, Map as MapIcon, RefreshCw, Lock, Unlock } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -34,7 +34,7 @@ const AddProduct = () => {
     const [product, setProduct] = useState({
         name: '',
         category: 'Groceries',
-        subCategory: 'Fruits', // Default Sub Category
+        subCategory: 'Fruits',
         price: '',
         minOrderQty: '',
         bulkPricePerUnit: '',
@@ -48,35 +48,39 @@ const AddProduct = () => {
             city: 'Chennai',
             state: 'TN',
             pincode: ''
-        }
+        },
+        useShopLocation: true // Toggle for location Strategy
     });
 
-    const [shopExists, setShopExists] = useState(false);
-    const [isAnalyzing, setIsAnalyzing] = useState(false); // AI Simulation state
+    const [shopLocation, setShopLocation] = useState(null); // Base Shop Location
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
 
     useEffect(() => {
         const fetchShopDetails = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            const { data: shop, error } = await supabase
+            const { data: shop } = await supabase
                 .from('shops')
                 .select('*')
                 .eq('owner_id', user.id)
                 .single();
 
             if (shop) {
-                setShopExists(true);
+                const shopLoc = {
+                    latitude: shop.latitude || 12.9716,
+                    longitude: shop.longitude || 80.2534,
+                    area: shop.area || '',
+                    city: shop.city || '',
+                    state: shop.state || '',
+                    pincode: shop.pincode || ''
+                };
+                setShopLocation(shopLoc);
+                // Initialize product location with Shop Location if useShopLocation is true
                 setProduct(prev => ({
                     ...prev,
-                    location: {
-                        latitude: shop.latitude,
-                        longitude: shop.longitude,
-                        area: shop.area,
-                        city: shop.city,
-                        state: shop.state,
-                        pincode: shop.pincode
-                    }
+                    location: shopLoc,
+                    area: shop.area,
                 }));
             }
         };
@@ -94,22 +98,39 @@ const AddProduct = () => {
         }
     }, [product.category]);
 
-    const [isSearching, setIsSearching] = useState(false);
-
     const handleImageUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // In a real app, you would upload to storage and run AI analysis here
-        // For now, we just show the local preview
+        const previewUrl = URL.createObjectURL(file);
+
         setProduct(prev => ({
             ...prev,
-            imageUrl: URL.createObjectURL(file)
+            imageUrl: previewUrl
         }));
+
+        // Trigger Mock AI Analysis
+        setIsAnalyzing(true);
+        setTimeout(() => {
+            setIsAnalyzing(false);
+            // Mock Result based on filename or random
+            const mockSuggestions = [
+                { name: 'Organic Red Apple', cat: 'Groceries' },
+                { name: 'Fresh Milk 1L', cat: 'Groceries' },
+                { name: 'Smartphone Case', cat: 'Electronics' }
+            ];
+            const random = mockSuggestions[Math.floor(Math.random() * mockSuggestions.length)];
+
+            setProduct(prev => ({
+                ...prev,
+                name: random.name,
+                category: random.cat,
+                imageUrl: previewUrl
+            }));
+        }, 2000);
     };
 
     const generateBarcode = () => {
-        // Simple mock EAN-13 generation
         const timestamp = Date.now().toString().slice(-12);
         setProduct({ ...product, barcode: timestamp });
     };
@@ -125,53 +146,51 @@ const AddProduct = () => {
         setLoading(true);
         setSaveStatus(null);
         try {
-            // Get or create shop for authenticated user
             const { data: { user } } = await supabase.auth.getUser();
 
-            let { data: shopData, error: shopError } = await supabase
+            let { data: shopData } = await supabase
                 .from('shops')
                 .select('id')
                 .eq('owner_id', user.id)
                 .single();
 
-            // Should have been created in KYC, but fallback
+            // Create shop if missing (fallback)
             if (!shopData) {
-                const { data: newShop, error: createError } = await supabase
+                const { data: newShop } = await supabase
                     .from('shops')
                     .insert([{
                         name: 'My Shop',
                         owner_id: user.id,
                         latitude: product.location.latitude,
                         longitude: product.location.longitude,
-                        area: product.location.area,
-                        city: product.location.city,
-                        state: product.location.state,
-                        pincode: product.location.pincode,
-                        full_address: `${product.location.area}, ${product.location.city}`,
                         image_url: 'https://via.placeholder.com/150'
                     }])
                     .select()
                     .single();
-
-                if (createError) throw createError;
                 shopData = newShop;
             }
 
-            // Insert Product
+            // Insert Product with Location
             const { error: productError } = await supabase
                 .from('inventory_items')
                 .insert([{
                     shop_id: shopData.id,
                     name: product.name,
                     category: product.category,
-                    sub_category: product.subCategory, // Needs SQL migration to work
+                    sub_category: product.subCategory, // Fixed in schema? If not, ignore
                     description: product.description,
                     image_url: product.imageUrl,
                     barcode: product.barcode,
-                    quantity_in_stock: 100, // Default
+                    quantity_in_stock: 100,
                     cost_per_unit: parseFloat(product.price) || 0,
                     min_moq: parseInt(product.minOrderQty) || 1,
-                    bulk_moq_cost: parseFloat(product.bulkPricePerUnit) || null
+                    bulk_moq_cost: parseFloat(product.bulkPricePerUnit) || null,
+                    // **NEW**: Per Item Location Logic
+                    // If using Shop Location, save NULL so it stays linked to Shop
+                    // If Custom, save the specific coordinates
+                    latitude: product.useShopLocation ? null : product.location.latitude,
+                    longitude: product.useShopLocation ? null : product.location.longitude,
+                    full_address: product.useShopLocation ? null : `${product.location.area}, ${product.location.city}`
                 }]);
 
             if (productError) throw productError;
@@ -187,7 +206,25 @@ const AddProduct = () => {
         }
     };
 
-    // Map Updater to fly to new coordinates
+    // Component to handle map clicks/drags for specific item location
+    const MapEvents = () => {
+        useMapEvents({
+            click(e) {
+                if (!product.useShopLocation) {
+                    setProduct(prev => ({
+                        ...prev,
+                        location: {
+                            ...prev.location,
+                            latitude: e.latlng.lat,
+                            longitude: e.latlng.lng
+                        }
+                    }));
+                }
+            }
+        });
+        return null;
+    };
+
     const MapUpdater = ({ center }) => {
         const map = useMap();
         useEffect(() => {
@@ -219,35 +256,22 @@ const AddProduct = () => {
                     </h3>
 
                     <div className="grid grid-cols-2 gap-4">
-                        {/* Gallery Upload */}
                         <label className="cursor-pointer bg-white border border-gray-200 p-4 rounded-xl flex flex-col items-center gap-2 hover:bg-gray-50 transition shadow-sm">
                             <span className="text-3xl">📁</span>
                             <span className="text-sm font-bold text-gray-700">Gallery</span>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleImageUpload}
-                                className="hidden"
-                            />
+                            <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                         </label>
-
-                        {/* Camera Capture - Triggers Mobile Camera */}
                         <label className="cursor-pointer bg-white border border-gray-200 p-4 rounded-xl flex flex-col items-center gap-2 hover:bg-gray-50 transition shadow-sm">
                             <span className="text-3xl">📸</span>
                             <span className="text-sm font-bold text-gray-700">Camera</span>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                onChange={handleImageUpload}
-                                className="hidden"
-                            />
+                            <input type="file" accept="image/*" capture="environment" onChange={handleImageUpload} className="hidden" />
                         </label>
                     </div>
 
-                    {isAnalyzing && (
-                        <div className="mt-3 text-xs text-center text-blue-600 font-medium">
-                            Detecting product details... (Simulated)
+                    {/* Image Preview - WAS MISSING */}
+                    {product.imageUrl && (
+                        <div className="mt-4 flex justify-center">
+                            <img src={product.imageUrl} alt="Preview" className="h-40 rounded-lg shadow-md border border-gray-200" />
                         </div>
                     )}
                 </div>
@@ -258,18 +282,17 @@ const AddProduct = () => {
                         <label className="text-sm font-semibold text-gray-700">Product Name</label>
                         <input
                             type="text"
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                            className="w-full p-3 border border-gray-300 rounded-lg outline-none"
                             placeholder="e.g. Red Apple"
                             value={product.name}
                             onChange={(e) => setProduct({ ...product, name: e.target.value })}
                         />
                     </div>
 
-                    {/* Category & Sub-Category */}
                     <div className="space-y-2">
                         <label className="text-sm font-semibold text-gray-700">Category</label>
                         <select
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                            className="w-full p-3 border border-gray-300 rounded-lg bg-white"
                             value={product.category}
                             onChange={(e) => setProduct({ ...product, category: e.target.value })}
                         >
@@ -282,7 +305,7 @@ const AddProduct = () => {
                     <div className="space-y-2">
                         <label className="text-sm font-semibold text-gray-700">Sub Category</label>
                         <select
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                            className="w-full p-3 border border-gray-300 rounded-lg bg-white"
                             value={product.subCategory}
                             onChange={(e) => setProduct({ ...product, subCategory: e.target.value })}
                         >
@@ -358,9 +381,6 @@ const AddProduct = () => {
                         {product.barcode ? (
                             <>
                                 <Barcode value={product.barcode} width={2} height={60} fontSize={14} />
-                                <button className="mt-4 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg flex items-center gap-2 transition">
-                                    <Printer className="w-3 h-3" /> Print Sticker
-                                </button>
                             </>
                         ) : (
                             <span className="text-gray-400 text-sm">No barcode generated yet</span>
@@ -368,13 +388,26 @@ const AddProduct = () => {
                     </div>
                 </div>
 
-                {/* Shop Location */}
+                {/* Shop Location Strategy */}
                 <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
                     <div className="flex justify-between items-center mb-4">
                         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                            Shop Location (Fixed)
-                            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Read Only</span>
+                            Item Location
                         </h3>
+                        <button
+                            onClick={() => {
+                                const newVal = !product.useShopLocation;
+                                setProduct(prev => ({
+                                    ...prev,
+                                    useShopLocation: newVal,
+                                    // If locking back to shop, reset coords
+                                    location: newVal && shopLocation ? shopLocation : prev.location
+                                }));
+                            }}
+                            className={`text-xs px-3 py-1 rounded-full border flex items-center gap-1 transition-all ${product.useShopLocation ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-orange-100 text-orange-700 border-orange-300'}`}
+                        >
+                            {product.useShopLocation ? <><Lock className="w-3 h-3" /> Shop Default</> : <><Unlock className="w-3 h-3" /> Custom Location</>}
+                        </button>
                     </div>
 
                     <div className="h-64 rounded-lg overflow-hidden border border-gray-300 shadow-sm relative z-0 mb-4">
@@ -385,35 +418,36 @@ const AddProduct = () => {
                         >
                             <TileLayer
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                attribution='&copy; OpenStreetMap contributors'
                             />
-                            <Marker position={[product.location.latitude, product.location.longitude]} />
+                            {/* Make marker draggable ONLY if custom location is enabled */}
+                            <Marker
+                                position={[product.location.latitude, product.location.longitude]}
+                                draggable={!product.useShopLocation}
+                                eventHandlers={{
+                                    dragend: (e) => {
+                                        const marker = e.target;
+                                        const position = marker.getLatLng();
+                                        setProduct(prev => ({
+                                            ...prev,
+                                            location: {
+                                                ...prev.location,
+                                                latitude: position.lat,
+                                                longitude: position.lng
+                                            }
+                                        }));
+                                    }
+                                }}
+                            />
                             <MapUpdater center={[product.location.latitude, product.location.longitude]} />
+                            <MapEvents />
                         </MapContainer>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2 text-sm bg-white p-3 rounded border border-gray-200">
-                            <MapIcon className="inline w-4 h-4 mr-2 text-gray-500" />
-                            {product.location.area}, {product.location.city}, {product.location.state}
-                        </div>
-
-                        {/* Manual Pincode */}
-                        <div className="col-span-2">
-                            <label className="text-xs text-gray-600 block mb-1">Pincode (Manual Entry)</label>
-                            <input
-                                type="text"
-                                maxLength="6"
-                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                placeholder="e.g. 600017"
-                                value={product.location.pincode}
-                                onChange={(e) => setProduct({
-                                    ...product,
-                                    location: { ...product.location, pincode: e.target.value }
-                                })}
-                            />
-                        </div>
-                    </div>
+                    {!product.useShopLocation && (
+                        <p className="text-xs text-orange-600 mt-2">
+                            * You are setting a custom location for this item.
+                        </p>
+                    )}
                 </div>
 
                 {/* Actions */}
@@ -422,26 +456,10 @@ const AddProduct = () => {
                     disabled={loading}
                     className={`w-full text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex justify-center items-center gap-2 ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
                 >
-                    {loading ? (
-                        <span>Saving...</span>
-                    ) : (
-                        <>
-                            <Save className="w-5 h-5" />
-                            Save Product to Inventory
-                        </>
-                    )}
+                    {loading ? <span>Saving...</span> : <><Save className="w-5 h-5" /> Save Product to Inventory</>}
                 </button>
-                {saveStatus === 'success' && (
-                    <div className="mt-4 p-4 bg-green-100 text-green-700 text-center rounded-lg">
-                        Product saved successfully!
-                    </div>
-                )}
-                {saveStatus === 'error' && (
-                    <div className="mt-4 p-4 bg-red-100 text-red-700 text-center rounded-lg">
-                        Error saving product. Please check console/connection.
-                    </div>
-                )}
-
+                {saveStatus === 'success' && <div className="mt-4 p-4 bg-green-100 text-green-700 text-center rounded-lg">Product saved successfully!</div>}
+                {saveStatus === 'error' && <div className="mt-4 p-4 bg-red-100 text-red-700 text-center rounded-lg">Error saving product.</div>}
             </div>
         </div>
     );
