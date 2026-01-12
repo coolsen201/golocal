@@ -1,7 +1,7 @@
--- MASTER FIX: profiles table and user verification
--- Run this in your Supabase SQL Editor (https://supabase.com/dashboard/project/_/sql)
+-- fix-database-schema.sql
+-- Run this script to Ensure ALL Schema requirements are met
 
--- 1. Create ENUMs
+-- 1. Create Types if they don't exist
 DO $$ BEGIN
     CREATE TYPE user_role AS ENUM ('admin', 'seller', 'buyer');
 EXCEPTION
@@ -14,82 +14,104 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- 2. Create Profiles Table
+-- 2. Ensure Profiles Table Exists
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    role user_role NOT NULL DEFAULT 'buyer',
     full_name TEXT,
-    phone TEXT,
     avatar_url TEXT,
-    
-    -- Seller Verification Fields
-    mobile_number TEXT,
-    business_type TEXT,
-    business_address TEXT,
-    pan_number TEXT,
-    gstin TEXT,
-    bank_name TEXT,
-    account_number TEXT,
-    ifsc_code TEXT,
-    approval_status seller_status DEFAULT 'none',
-    identity_doc_url TEXT,
-    business_doc_url TEXT,
-    rejection_reason TEXT,
-    
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Enable RLS
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
--- 4. RLS Policies
+-- 3. Add Columns Safely (Idempotent)
 DO $$ BEGIN
-    CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
-EXCEPTION WHEN duplicate_object THEN null; END $$;
-
-DO $$ BEGIN
-    CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
-EXCEPTION WHEN duplicate_object THEN null; END $$;
+    ALTER TABLE public.profiles ADD COLUMN role user_role DEFAULT 'buyer'::user_role;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
 
 DO $$ BEGIN
-    CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
-EXCEPTION WHEN duplicate_object THEN null; END $$;
+    ALTER TABLE public.profiles ADD COLUMN approval_status seller_status DEFAULT 'none'::seller_status;
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
 
--- 5. Profile Trigger Function
+-- KYC Columns
+DO $$ BEGIN
+    ALTER TABLE public.profiles ADD COLUMN residential_address TEXT;
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
+    ALTER TABLE public.profiles ADD COLUMN is_individual BOOLEAN DEFAULT FALSE;
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
+    ALTER TABLE public.profiles ADD COLUMN nature_of_business TEXT;
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
+    ALTER TABLE public.profiles ADD COLUMN aadhaar_card_url TEXT;
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
+    ALTER TABLE public.profiles ADD COLUMN selfie_url TEXT;
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+DO $$ BEGIN
+    ALTER TABLE public.profiles ADD COLUMN shop_photo_url TEXT;
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+
+-- 4. Re-Define Trigger with Safety Checks
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
-    user_role_value user_role;
+    new_role user_role;
+    raw_role text;
 BEGIN
-    -- Safely get role from metadata, default to 'buyer'
-    user_role_value := CASE 
-        WHEN NEW.raw_user_meta_data->>'role' = 'seller' THEN 'seller'::user_role
-        WHEN NEW.raw_user_meta_data->>'role' = 'admin' THEN 'admin'::user_role
-        ELSE 'buyer'::user_role
-    END;
-    
-    INSERT INTO public.profiles (id, full_name, avatar_url, role)
+    -- Extract role safely from metadata
+    raw_role := NEW.raw_user_meta_data->>'role';
+
+    -- Validate and cast role
+    CASE raw_role
+        WHEN 'seller' THEN new_role := 'seller'::user_role;
+        WHEN 'admin' THEN new_role := 'buyer'::user_role; -- No auto-admin
+        ELSE new_role := 'buyer'::user_role;
+    END CASE;
+
+    INSERT INTO public.profiles (
+        id, 
+        full_name, 
+        avatar_url, 
+        role, 
+        approval_status
+    )
     VALUES (
         NEW.id,
-        NEW.raw_user_meta_data->>'full_name',
-        NEW.raw_user_meta_data->>'avatar_url',
-        user_role_value
+        COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+        COALESCE(NEW.raw_user_meta_data->>'avatar_url', ''),
+        new_role,
+        CASE 
+            WHEN new_role = 'seller' THEN 'pending'::seller_status 
+            ELSE 'none'::seller_status 
+        END
     )
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (id) 
+    DO UPDATE SET
+        full_name = COALESCE(EXCLUDED.full_name, profiles.full_name),
+        role = EXCLUDED.role,
+        updated_at = NOW();
+    
     RETURN NEW;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE WARNING 'Error in handle_new_user: %', SQLERRM;
+        -- Return NEW to allow signup even if profile creation fails (logs will show why)
+        RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 6. Re-create Trigger
+-- 5. Ensure Trigger is Bound
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
--- 7. Performance Index
-CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
-CREATE INDEX IF NOT EXISTS idx_profiles_approval_status ON public.profiles(approval_status);
-
--- 8. Refresh Cache (PostgREST specific)
-NOTIFY pgrst, 'reload schema';

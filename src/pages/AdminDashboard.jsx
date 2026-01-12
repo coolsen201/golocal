@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import { supabase } from '../supabaseClient';
-import { BarChart3, Users, Package, TrendingUp, CheckCircle, XCircle, FileText, ExternalLink, Calculator } from 'lucide-react';
+import { BarChart3, Users, Package, TrendingUp, CheckCircle, XCircle, FileText, ExternalLink, Calculator, AlertCircle, Clock } from 'lucide-react';
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('inventory'); // 'inventory', 'approvals'
     const [inventory, setInventory] = useState([]);
-    const [pendingSellers, setPendingSellers] = useState([]);
+    const [sellerRequests, setSellerRequests] = useState([]); // Stores ALL seller profiles
     const [stats, setStats] = useState({
         totalSellers: 0,
         totalProducts: 0,
@@ -29,26 +29,21 @@ const AdminDashboard = () => {
                 .select(`*, shops (*, profiles (*))`)
                 .order('created_at', { ascending: false });
 
-            // Fetch pending approvals
-            const { data: pendingData } = await supabase
+            // Fetch ALL seller profiles (not just pending)
+            const { data: allSellersData } = await supabase
                 .from('profiles')
                 .select('*')
-                .eq('approval_status', 'pending');
-
-            // Fetch all sellers for stats
-            const { data: sellerData } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('role', 'seller');
+                .eq('role', 'seller')
+                .order('created_at', { ascending: false }); // Newest first
 
             setInventory(inventoryData || []);
-            setPendingSellers(pendingData || []);
+            setSellerRequests(allSellersData || []);
 
             const totalStock = inventoryData?.reduce((sum, item) => sum + (item.quantity_in_stock || 0), 0) || 0;
             const inventoryValue = inventoryData?.reduce((sum, item) => sum + ((item.quantity_in_stock || 0) * (item.cost_per_unit || 0)), 0) || 0;
 
             setStats({
-                totalSellers: sellerData?.length || 0,
+                totalSellers: allSellersData?.length || 0,
                 totalProducts: inventoryData?.length || 0,
                 totalStock,
                 inventoryValue: inventoryValue.toFixed(2),
@@ -68,9 +63,15 @@ const AdminDashboard = () => {
                 .eq('id', userId);
 
             if (error) throw error;
-            fetchData();
+
+            // Optimistic update
+            setSellerRequests(prev => prev.map(seller =>
+                seller.id === userId ? { ...seller, approval_status: status } : seller
+            ));
+
         } catch (error) {
             alert('Error updating status: ' + error.message);
+            fetchData(); // Revert on error
         }
     };
 
@@ -79,6 +80,8 @@ const AdminDashboard = () => {
         item.shops?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.shops?.profiles?.full_name.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const pendingCount = sellerRequests.filter(s => s.approval_status === 'pending').length;
 
     if (loading) {
         return (
@@ -107,10 +110,10 @@ const AdminDashboard = () => {
                             onClick={() => setActiveTab('approvals')}
                             className={`px-4 py-2 rounded-md text-sm font-bold transition flex items-center gap-2 ${activeTab === 'approvals' ? 'bg-white text-purple-600 shadow' : 'text-gray-600'}`}
                         >
-                            Approvals
-                            {pendingSellers.length > 0 && (
-                                <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                                    {pendingSellers.length}
+                            Seller Requests
+                            {pendingCount > 0 && (
+                                <span className="bg-yellow-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                                    {pendingCount}
                                 </span>
                             )}
                         </button>
@@ -183,16 +186,16 @@ const AdminDashboard = () => {
                     </>
                 ) : (
                     <div className="space-y-6">
-                        {pendingSellers.length === 0 ? (
+                        {sellerRequests.length === 0 ? (
                             <div className="bg-white p-12 text-center rounded-xl shadow-md">
-                                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                                <h3 className="text-xl font-bold text-gray-800">No Pending Approvals</h3>
-                                <p className="text-gray-500">All seller registrations have been processed.</p>
+                                <CheckCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                <h3 className="text-xl font-bold text-gray-800">No Sellers Found</h3>
+                                <p className="text-gray-500">There are no registered sellers yet.</p>
                             </div>
                         ) : (
-                            pendingSellers.map((seller) => (
+                            sellerRequests.map((seller) => (
                                 <div key={seller.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                                    <div className="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+                                    <div className="bg-gray-50 px-6 py-4 border-b flex justify-between items-center flex-wrap gap-4">
                                         <div className="flex items-center gap-3">
                                             <div className="bg-purple-100 p-2 rounded-lg">
                                                 <Users className="w-5 h-5 text-purple-600" />
@@ -201,20 +204,39 @@ const AdminDashboard = () => {
                                                 <h3 className="font-bold text-gray-900 text-lg">{seller.full_name}</h3>
                                                 <span className="text-xs text-gray-500 uppercase tracking-widest">{seller.business_type}</span>
                                             </div>
+                                            {/* Status Badge */}
+                                            <div className={`
+                                                flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider
+                                                ${seller.approval_status === 'approved' ? 'bg-green-100 text-green-700' : ''}
+                                                ${seller.approval_status === 'pending' || seller.approval_status === 'none' ? 'bg-yellow-100 text-yellow-700' : ''}
+                                                ${seller.approval_status === 'rejected' ? 'bg-red-100 text-red-700' : ''}
+                                            `}>
+                                                {seller.approval_status === 'approved' && <CheckCircle className="w-3 h-3" />}
+                                                {seller.approval_status === 'pending' && <Clock className="w-3 h-3" />}
+                                                {seller.approval_status === 'rejected' && <XCircle className="w-3 h-3" />}
+                                                {seller.approval_status || 'Pending'}
+                                            </div>
                                         </div>
+
                                         <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleApproval(seller.id, 'approved')}
-                                                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700"
-                                            >
-                                                <CheckCircle className="w-4 h-4" /> Approve
-                                            </button>
-                                            <button
-                                                onClick={() => handleApproval(seller.id, 'rejected')}
-                                                className="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-200"
-                                            >
-                                                <XCircle className="w-4 h-4" /> Reject
-                                            </button>
+                                            {/* Actions based on current status */}
+                                            {seller.approval_status !== 'approved' && (
+                                                <button
+                                                    onClick={() => handleApproval(seller.id, 'approved')}
+                                                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 shadow-sm transition transform active:scale-95"
+                                                >
+                                                    <CheckCircle className="w-4 h-4" /> Approve
+                                                </button>
+                                            )}
+
+                                            {seller.approval_status !== 'rejected' && (
+                                                <button
+                                                    onClick={() => handleApproval(seller.id, 'rejected')}
+                                                    className="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition"
+                                                >
+                                                    <XCircle className="w-4 h-4" /> Reject
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -222,28 +244,28 @@ const AdminDashboard = () => {
                                             <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1">
                                                 <FileText className="w-3 h-3" /> Contact & Address
                                             </h4>
-                                            <div className="space-y-1 text-sm">
-                                                <p><span className="text-gray-500">Mobile:</span> {seller.mobile_number}</p>
-                                                <p className="text-gray-600">{seller.business_address}</p>
+                                            <div className="space-y-2 text-sm">
+                                                <p className="flex justify-between border-b pb-1 border-gray-100"><span className="text-gray-500">Mobile:</span> <span className="font-medium">{seller.mobile_number}</span></p>
+                                                <p className="flex justify-between border-b pb-1 border-gray-100"><span className="text-gray-500">Address:</span> <span className="font-medium text-right w-2/3 truncate">{seller.business_address}</span></p>
                                             </div>
                                         </div>
                                         <div>
                                             <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1">
                                                 <Calculator className="w-3 h-3" /> Tax Details
                                             </h4>
-                                            <div className="space-y-1 text-sm">
-                                                <p><span className="text-gray-500">PAN:</span> {seller.pan_number}</p>
-                                                <p><span className="text-gray-500">GSTIN:</span> {seller.gstin}</p>
+                                            <div className="space-y-2 text-sm">
+                                                <p className="flex justify-between border-b pb-1 border-gray-100"><span className="text-gray-500">PAN:</span> <span className="font-medium">{seller.pan_number}</span></p>
+                                                <p className="flex justify-between border-b pb-1 border-gray-100"><span className="text-gray-500">GSTIN:</span> <span className="font-medium">{seller.gstin}</span></p>
                                             </div>
                                         </div>
                                         <div>
                                             <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1">
                                                 <TrendingUp className="w-3 h-3" /> Bank Details
                                             </h4>
-                                            <div className="space-y-1 text-sm">
-                                                <p><span className="text-gray-500">Bank:</span> {seller.bank_name}</p>
-                                                <p><span className="text-gray-500">Acc No:</span> {seller.account_number}</p>
-                                                <p><span className="text-gray-500">IFSC:</span> {seller.ifsc_code}</p>
+                                            <div className="space-y-2 text-sm">
+                                                <p className="flex justify-between border-b pb-1 border-gray-100"><span className="text-gray-500">Bank:</span> <span className="font-medium">{seller.bank_name}</span></p>
+                                                <p className="flex justify-between border-b pb-1 border-gray-100"><span className="text-gray-500">Acc No:</span> <span className="font-medium">{seller.account_number}</span></p>
+                                                <p className="flex justify-between border-b pb-1 border-gray-100"><span className="text-gray-500">IFSC:</span> <span className="font-medium">{seller.ifsc_code}</span></p>
                                             </div>
                                         </div>
                                     </div>

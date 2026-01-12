@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../supabaseClient';
-import { Search, ShoppingBag } from 'lucide-react';
+import { Search, ShoppingBag, Camera } from 'lucide-react';
 import L from 'leaflet';
 
 // Fix for Leaflet default markers in Vite
@@ -98,14 +98,13 @@ const BuyerMap = () => {
 
     return (
         <div className="fixed inset-0 w-full h-screen">
-            {/* Search Overlay */}
-            <div className="absolute top-4 left-4 right-4 z-[1000] max-w-2xl mx-auto">
-                <div className="bg-white p-3 rounded-xl shadow-xl">
-                    {/* Category Dropdown */}
-                    <div className="mb-3">
-                        <label className="text-xs text-gray-600 block mb-1">Category</label>
+            {/* Search Overlay - Moved to Bottom */}
+            <div className="absolute bottom-6 left-4 right-4 z-[1000] max-w-2xl mx-auto pointer-events-none">
+                <div className="bg-white/90 backdrop-blur-md p-3 rounded-xl shadow-2xl border border-gray-200 pointer-events-auto">
+                    {/* Top Row: Category & Radius */}
+                    <div className="flex gap-2 mb-3">
                         <select
-                            className="w-full p-2 border border-gray-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                            className="flex-1 p-2 border border-gray-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-green-500 text-sm"
                             value={category}
                             onChange={(e) => setCategory(e.target.value)}
                         >
@@ -115,31 +114,47 @@ const BuyerMap = () => {
                             <option value="Clothing">Clothing</option>
                             <option value="Hardware">Hardware</option>
                         </select>
+                        <select
+                            className="w-1/3 p-2 border border-gray-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                            value={radius}
+                            onChange={(e) => setRadius(e.target.value)}
+                        >
+                            <option value="5">5 km</option>
+                            <option value="10">10 km</option>
+                            <option value="20">20 km</option>
+                        </select>
                     </div>
 
-                    {/* Product Search with Autocomplete */}
+                    {/* Bottom Row: Search Input */}
                     <div className="relative">
-                        <label className="text-xs text-gray-600 block mb-1">Product Name</label>
                         <div className="flex gap-2">
                             <div className="flex-1 relative">
-                                <div className="flex items-center bg-gray-100 rounded-lg px-3">
+                                <div className="flex items-center bg-gray-50 border border-gray-300 rounded-lg px-3 py-1">
                                     <Search className="w-5 h-5 text-gray-500" />
                                     <input
-                                        className="w-full bg-transparent p-2 outline-none text-gray-800"
-                                        placeholder="Type product name..."
+                                        className="w-full bg-transparent p-2 outline-none text-gray-800 placeholder-gray-500 font-medium"
+                                        placeholder="Search products..."
                                         value={query}
                                         onChange={(e) => handleQueryChange(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                     />
+                                    {/* Camera Button */}
+                                    <button
+                                        className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-600 transition"
+                                        title="Scan Product"
+                                        onClick={() => alert('Camera Scan feature coming soon!')}
+                                    >
+                                        <Camera className="w-5 h-5" />
+                                    </button>
                                 </div>
 
-                                {/* Autocomplete Suggestions */}
+                                {/* Autocomplete Suggestions (Expanding Upwards) */}
                                 {suggestions.length > 0 && (
-                                    <div className="absolute top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                                    <div className="absolute bottom-full mb-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-20 overflow-hidden">
                                         {suggestions.map((suggestion, idx) => (
                                             <div
                                                 key={idx}
-                                                className="p-2 hover:bg-blue-50 cursor-pointer text-sm"
+                                                className="p-3 hover:bg-green-50 cursor-pointer text-sm font-medium text-gray-700 border-b last:border-0"
                                                 onClick={() => {
                                                     setQuery(suggestion);
                                                     setSuggestions([]);
@@ -154,25 +169,11 @@ const BuyerMap = () => {
                             </div>
                             <button
                                 onClick={handleSearch}
-                                className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
+                                className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700 transition shadow-md whitespace-nowrap"
                             >
                                 Find
                             </button>
                         </div>
-                    </div>
-
-                    {/* Radius Selector */}
-                    <div className="mt-3 flex items-center gap-2">
-                        <span className="text-xs text-gray-600">Search Radius:</span>
-                        <select
-                            className="text-sm bg-gray-100 rounded-lg px-3 py-1 text-gray-700 outline-none"
-                            value={radius}
-                            onChange={(e) => setRadius(e.target.value)}
-                        >
-                            <option value="5">5 km</option>
-                            <option value="10">10 km</option>
-                            <option value="20">20 km</option>
-                        </select>
                     </div>
                 </div>
             </div>

@@ -93,10 +93,10 @@ const DashboardLayout = ({ children }) => {
             </nav>
 
             {/* Main Content */}
-            <div className="pt-16 min-h-screen bg-gray-50">
+            < div className="pt-16 min-h-screen bg-gray-50" >
                 {children}
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

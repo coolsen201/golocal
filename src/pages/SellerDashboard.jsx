@@ -3,20 +3,16 @@ import { useAuth } from '../contexts/AuthContext';
 import DashboardLayout from '../components/DashboardLayout';
 import AddProduct from '../components/AddProduct';
 import SellerInventory from './SellerInventory';
-import SellerRegistration from './SellerRegistration';
+import SellerPending from './SellerPending';
 import { ShoppingBag, Package } from 'lucide-react';
 
 const SellerDashboard = () => {
     const { profile } = useAuth();
     const [view, setView] = useState('inventory'); // Default to inventory
 
-    // If seller is not approved, show registration/pending status
+    // If seller is not approved, show pending status
     if (profile?.approval_status !== 'approved') {
-        return (
-            <DashboardLayout>
-                <SellerRegistration />
-            </DashboardLayout>
-        );
+        return <SellerPending />;
     }
 
     return (

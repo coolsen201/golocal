@@ -129,6 +129,7 @@ export const AuthProvider = ({ children }) => {
         isApprovedSeller: profile?.role === 'seller' && profile?.approval_status === 'approved',
         isSeller: profile?.role === 'seller',
         isBuyer: profile?.role === 'buyer',
+        refreshProfile: () => user && fetchProfile(user.id),
     };
 
     return (
