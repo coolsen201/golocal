@@ -51,6 +51,45 @@ const AddProduct = () => {
         }
     });
 
+    const [shopExists, setShopExists] = useState(false);
+    const [isAnalyzing, setIsAnalyzing] = useState(false); // AI Simulation state
+
+    useEffect(() => {
+        const fetchShopDetails = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: shop, error } = await supabase
+                .from('shops')
+                .select('*')
+                .eq('owner_id', user.id)
+                .single();
+
+            if (shop) {
+                // **FIX**: If shop has 0,0 coordinates (invalid), allow user to Update it
+                if (shop.latitude === 0 || shop.longitude === 0) {
+                    setShopExists(false); // Enable Edit Mode
+                } else {
+                    setShopExists(true);
+                    // Lock location to existing shop
+                    setProduct(prev => ({
+                        ...prev,
+                        location: {
+                            latitude: shop.latitude,
+                            longitude: shop.longitude,
+                            area: shop.area,
+                            city: shop.city,
+                            state: shop.state,
+                            pincode: shop.pincode
+                        }
+                    }));
+                }
+            }
+        };
+
+        fetchShopDetails();
+    }, []);
+
     // Update sub-category when main category changes
     useEffect(() => {
         const subs = SUB_CATEGORIES[product.category] || [];
@@ -134,8 +173,25 @@ const AddProduct = () => {
                 .eq('owner_id', user.id)
                 .single();
 
-            // If no shop exists, create one
-            if (!shopData) {
+            if (shopData) {
+                // **FIX**: Update Shop Location if it changed (fixing the 0,0 bug)
+                // We update if the user has edited the location (which implies shopExists=false or it was 0,0)
+                if (product.location.latitude !== 0 && product.location.longitude !== 0) {
+                    await supabase
+                        .from('shops')
+                        .update({
+                            latitude: product.location.latitude,
+                            longitude: product.location.longitude,
+                            area: product.location.area,
+                            city: product.location.city,
+                            state: product.location.state,
+                            pincode: product.location.pincode,
+                            full_address: `${product.location.area}, ${product.location.city}`
+                        })
+                        .eq('id', shopData.id);
+                }
+            } else {
+                // If no shop exists, create one
                 const { data: newShop, error: createError } = await supabase
                     .from('shops')
                     .insert([{
