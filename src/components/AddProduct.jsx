@@ -109,25 +109,40 @@ const AddProduct = () => {
             imageUrl: previewUrl
         }));
 
-        // Trigger Mock AI Analysis
+        // Production Logic: Extract Name from Filename
         setIsAnalyzing(true);
         setTimeout(() => {
             setIsAnalyzing(false);
-            // Mock Result based on filename or random
-            const mockSuggestions = [
-                { name: 'Organic Red Apple', cat: 'Groceries' },
-                { name: 'Fresh Milk 1L', cat: 'Groceries' },
-                { name: 'Smartphone Case', cat: 'Electronics' }
-            ];
-            const random = mockSuggestions[Math.floor(Math.random() * mockSuggestions.length)];
+
+            // 1. Extract Name (remove extension and special chars)
+            const fileName = file.name.split('.').slice(0, -1).join('.');
+            const cleanName = fileName
+                .replace(/[-_]/g, ' ') // Replace dashes/underscores with spaces
+                .replace(/[0-9]/g, '') // Remove numbers (optional, keeps 'Ginger1' as 'Ginger')
+                .trim();
+
+            // Capitalize First Letter of each word
+            const formattedName = cleanName.replace(/\w\S*/g, (w) => (w.replace(/^\w/, (c) => c.toUpperCase())));
+
+            // 2. Simple Heuristic for Category (Optional but helpful)
+            let detectedCategory = 'Groceries'; // Default
+            const nameLower = formattedName.toLowerCase();
+
+            if (['phone', 'laptop', 'cable', 'charge', 'screen'].some(k => nameLower.includes(k))) {
+                detectedCategory = 'Electronics';
+            } else if (['shirt', 'pant', 'dress', 'shoe', 'wear'].some(k => nameLower.includes(k))) {
+                detectedCategory = 'Clothing';
+            } else if (['tool', 'pipe', 'paint', 'drill'].some(k => nameLower.includes(k))) {
+                detectedCategory = 'Hardware';
+            }
 
             setProduct(prev => ({
                 ...prev,
-                name: random.name,
-                category: random.cat,
+                name: formattedName || prev.name, // Use extracted name or keep existing
+                category: detectedCategory,
                 imageUrl: previewUrl
             }));
-        }, 2000);
+        }, 1500); // Short delay to simulate processing
     };
 
     const generateBarcode = () => {
