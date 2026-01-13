@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../supabaseClient';
-import { Search, ShoppingBag, Camera } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { Search, ShoppingBag, Map, LogOut, LogIn } from 'lucide-react';
 import L from 'leaflet';
 
 // Fix for Leaflet default markers in Vite
@@ -33,6 +35,7 @@ const createPriceIcon = (price) => {
 // const SUB_CATEGORIES = { ... };
 
 const BuyerMap = () => {
+    const { user, profile, signOut } = useAuth();
     const [query, setQuery] = useState('');
     const [category, setCategory] = useState('All');
     const [itemName, setItemName] = useState(''); // Replaces subCategory
@@ -243,6 +246,45 @@ const BuyerMap = () => {
                             >
                                 Find
                             </button>
+
+                            {/* Moved Navigation Buttons - Scaled Down */}
+                            <div className="flex items-center gap-2 ml-2 transform scale-75 origin-left">
+                                {/* Seller Views */}
+                                {profile?.role === 'seller' && (
+                                    <Link
+                                        to="/seller"
+                                        className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-semibold transition flex items-center hover:bg-white hover:text-green-600 hover:shadow whitespace-nowrap"
+                                    >
+                                        <ShoppingBag className="w-4 h-4 mr-1" />
+                                        Seller Zone
+                                    </Link>
+                                )}
+
+                                {/* Buyer View (Active) */}
+                                <div className="px-3 py-2 bg-white text-green-600 rounded-lg text-sm font-semibold shadow border border-green-100 flex items-center whitespace-nowrap">
+                                    <Map className="w-4 h-4 mr-1" />
+                                    Buyer
+                                </div>
+
+                                {/* Sign Out / Login */}
+                                {user ? (
+                                    <button
+                                        onClick={signOut}
+                                        className="px-3 py-2 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition flex items-center gap-2 whitespace-nowrap"
+                                    >
+                                        <LogOut className="w-4 h-4" />
+                                        Sign Out
+                                    </button>
+                                ) : (
+                                    <Link
+                                        to="/login"
+                                        className="px-3 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition flex items-center gap-2 whitespace-nowrap"
+                                    >
+                                        <LogIn className="w-4 h-4" />
+                                        Login
+                                    </Link>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -282,6 +324,8 @@ const BuyerMap = () => {
                             acc[locKey] = {
                                 coords: [lat, lng],
                                 shopName: item.shops?.name,
+                                // Use item-specific address if available, else fallback to Shop details
+                                address: item.full_address || `${item.shops?.area || ''}, ${item.shops?.city || ''}`,
                                 city: item.shops?.city,
                                 items: []
                             };
@@ -298,7 +342,7 @@ const BuyerMap = () => {
                                 <div className="min-w-[200px]">
                                     {/* Show Shop Name if available, or just 'Location' */}
                                     <h3 className="font-bold text-lg border-b pb-2 mb-2">{group.shopName || 'Item Location'}</h3>
-                                    <p className="text-xs text-gray-500 mb-2">{group.city}</p>
+                                    <p className="text-xs text-gray-500 mb-2">{group.address}</p>
 
                                     <div className="max-h-[150px] overflow-y-auto space-y-3">
                                         {group.items.map((item, i) => (

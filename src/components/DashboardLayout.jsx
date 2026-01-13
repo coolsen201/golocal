@@ -28,66 +28,69 @@ const DashboardLayout = ({ children }) => {
 
                     <div className="flex items-center gap-3">
                         {/* View Toggle / Navigation Links */}
-                        <div className="flex bg-gray-100 rounded-lg p-1">
-                            {/* Admin Dashboard */}
-                            {profile?.role === 'admin' && (
-                                <Link
-                                    to="/admin"
-                                    className={`px-4 py-2 rounded-md text-sm font-semibold transition flex items-center ${isActive('/admin')
-                                        ? 'bg-white text-purple-600 shadow'
-                                        : 'text-gray-600 hover:text-gray-800'
-                                        }`}
-                                >
-                                    <BarChart3 className="w-4 h-4 mr-1" />
-                                    Admin
-                                </Link>
-                            )}
+                        {/* Hidden on Buyer Map because they are moved to bottom overlay */}
+                        {!isActive('/buyer') && (
+                            <div className="flex bg-gray-100 rounded-lg p-1">
+                                {/* Admin Dashboard */}
+                                {profile?.role === 'admin' && (
+                                    <Link
+                                        to="/admin"
+                                        className={`px-4 py-2 rounded-md text-sm font-semibold transition flex items-center ${isActive('/admin')
+                                            ? 'bg-white text-purple-600 shadow'
+                                            : 'text-gray-600 hover:text-gray-800'
+                                            }`}
+                                    >
+                                        <BarChart3 className="w-4 h-4 mr-1" />
+                                        Admin
+                                    </Link>
+                                )}
 
-                            {/* Seller Views */}
-                            {profile?.role === 'seller' && (
+                                {/* Seller Views */}
+                                {profile?.role === 'seller' && (
+                                    <Link
+                                        to="/seller"
+                                        className={`px-4 py-2 rounded-md text-sm font-semibold transition flex items-center ${isActive('/seller')
+                                            ? 'bg-white text-green-600 shadow'
+                                            : 'text-gray-600 hover:text-gray-800'
+                                            }`}
+                                    >
+                                        <ShoppingBag className="w-4 h-4 mr-1" />
+                                        Seller Zone
+                                    </Link>
+                                )}
+
+                                {/* Buyer View (available to all) */}
                                 <Link
-                                    to="/seller"
-                                    className={`px-4 py-2 rounded-md text-sm font-semibold transition flex items-center ${isActive('/seller')
+                                    to="/buyer"
+                                    className={`px-4 py-2 rounded-md text-sm font-semibold transition flex items-center ${isActive('/buyer')
                                         ? 'bg-white text-green-600 shadow'
                                         : 'text-gray-600 hover:text-gray-800'
                                         }`}
                                 >
-                                    <ShoppingBag className="w-4 h-4 mr-1" />
-                                    Seller Zone
+                                    <Map className="w-4 h-4 mr-1" />
+                                    Buyer
                                 </Link>
-                            )}
 
-                            {/* Buyer View (available to all) */}
-                            <Link
-                                to="/buyer"
-                                className={`px-4 py-2 rounded-md text-sm font-semibold transition flex items-center ${isActive('/buyer')
-                                    ? 'bg-white text-green-600 shadow'
-                                    : 'text-gray-600 hover:text-gray-800'
-                                    }`}
-                            >
-                                <Map className="w-4 h-4 mr-1" />
-                                Buyer
-                            </Link>
-
-                            {/* Sign Out / Login */}
-                            {user ? (
-                                <button
-                                    onClick={handleSignOut}
-                                    className="px-4 py-2 ml-2 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition flex items-center gap-2"
-                                >
-                                    <LogOut className="w-4 h-4" />
-                                    Sign Out
-                                </button>
-                            ) : (
-                                <Link
-                                    to="/login"
-                                    className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition flex items-center gap-2"
-                                >
-                                    <LogIn className="w-4 h-4" />
-                                    Login
-                                </Link>
-                            )}
-                        </div>
+                                {/* Sign Out / Login */}
+                                {user ? (
+                                    <button
+                                        onClick={handleSignOut}
+                                        className="px-4 py-2 ml-2 bg-red-100 text-red-700 rounded-lg font-semibold hover:bg-red-200 transition flex items-center gap-2"
+                                    >
+                                        <LogOut className="w-4 h-4" />
+                                        Sign Out
+                                    </button>
+                                ) : (
+                                    <Link
+                                        to="/login"
+                                        className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition flex items-center gap-2"
+                                    >
+                                        <LogIn className="w-4 h-4" />
+                                        Login
+                                    </Link>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </nav>

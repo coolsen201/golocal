@@ -303,11 +303,12 @@ const AdminDashboard = () => {
                                             ))}
                                         </div>
                                     </div>
-                                    ))
-                        )}
                                 </div>
-                            )}
+                            ))
+                        )}
                     </div>
+                )}
+            </div>
         </DashboardLayout>
     );
 };
